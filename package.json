@@ -1,0 +1,33 @@
+{
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "vite build",
+        "dev": "vite",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "test:coverage": "vitest run --coverage"
+    },
+    "devDependencies": {
+        "@tailwindcss/vite": "^4.0.0",
+        "@vitejs/plugin-vue": "^6.0.8",
+        "@vue/test-utils": "^2.4.6",
+        "axios": "^1.7.4",
+        "concurrently": "^9.0.1",
+        "jsdom": "^25.0.1",
+        "laravel-vite-plugin": "^1.2.0",
+        "tailwindcss": "^4.0.0",
+        "vite": "^6.0.11",
+        "vitest": "^2.1.8"
+    },
+    "dependencies": {
+        "@primeuix/themes": "^1.2.5",
+        "apexcharts": "^6.5.0",
+        "pinia": "^2.2.6",
+        "primeicons": "^7.0.0",
+        "primevue": "^4.5.5",
+        "vue": "^3.5.40",
+        "vue-router": "^4.4.5",
+        "vue3-apexcharts": "^1.11.1"
+    }
+}

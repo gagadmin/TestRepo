@@ -7,7 +7,6 @@ use App\Models\AuditLog;
 use App\Models\SecurityEvent;
 use App\Services\Security\SecurityMonitor;
 use App\Services\Security\SecurityPostureService;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;

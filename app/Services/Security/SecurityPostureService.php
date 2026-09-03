@@ -4,7 +4,6 @@ namespace App\Services\Security;
 
 use App\Models\SecurityEvent;
 use App\Models\SecurityScan;
-use App\Services\Security\SecurityMonitor;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;

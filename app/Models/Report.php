@@ -54,15 +54,21 @@ class Report extends Model
         return $this->hasMany(AnalyticsInsight::class);
     }
 
+    /**
+     * Department-scoped visibility reads the user access profile rather than
+     * the single `department` column. Report ownership is unaffected: a user
+     * always sees their own reports.
+     */
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
-        if ($user->roles()->where('name', 'administrator')->exists()) {
+        if ($user->isAdministrator()) {
             return $query;
         }
 
         $roles = $user->roles()->pluck('name');
+        $departments = $user->accessibleDepartments();
 
-        return $query->where(function (Builder $visible) use ($user, $roles) {
+        return $query->where(function (Builder $visible) use ($user, $departments, $roles) {
             $visible->where('user_id', $user->id)
                 ->orWhere(function (Builder $enterprise) use ($roles) {
                     $enterprise->where('visibility', 'enterprise')
@@ -74,14 +80,14 @@ class Report extends Model
                             }
                         });
                 })
-                ->orWhere(function (Builder $department) use ($user, $roles) {
+                ->orWhere(function (Builder $department) use ($departments, $roles) {
                     $department->where('visibility', 'department')
-                        ->where(function (Builder $allowed) use ($user, $roles) {
+                        ->where(function (Builder $allowed) use ($departments, $roles) {
                             $allowed->whereRaw('1 = 0');
 
-                            if ($user->department) {
-                                $allowed->orWhereJsonContains('definition->allowed_departments', $user->department)
-                                    ->orWhere('definition->department', $user->department);
+                            foreach ($departments as $name) {
+                                $allowed->orWhereJsonContains('definition->allowed_departments', $name)
+                                    ->orWhere('definition->department', $name);
                             }
 
                             foreach ($roles as $role) {

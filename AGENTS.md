@@ -17,6 +17,8 @@ Before a material change, read the smallest relevant set:
 - `ai/features/feature-overview.md` — capability status
 - `ai/issues/` — defects, risks, debt, fixes, troubleshooting
 - `ai/decisions/` — durable architectural decisions
+- `ai/change-requests/` — approved and pending change requests for stakeholder review
+- `ai/test-cases/` — test case documents traceable to a change request
 
 Treat routes, migrations, tests, and executable code as more authoritative than prose. Reconcile documentation when they differ.
 
@@ -35,6 +37,7 @@ Treat routes, migrations, tests, and executable code as more authoritative than 
 - Identify authorization and data-exposure risks before editing.
 - Define focused tests and the required regression/build checks.
 - Ask for direction only when a missing choice would materially change scope, external state, security, or business behavior.
+- For enhancements, bug fixes, security updates, integrations, and infrastructure changes, generate a Change Request with the `change-request-generator` skill before forging, and get stakeholder approval first. See "Change management".
 
 ### 3. Forge
 
@@ -69,6 +72,16 @@ php artisan schedule:list
 
 Report exactly what passed, failed, or could not be run. Do not claim production, load, security, recovery, vendor, email, Teams, or AI acceptance without evidence.
 
+## Change management
+
+Use the `change-request-generator` skill (`.claude/skills/change-request-generator/SKILL.md`) for any change that stakeholders must approve: enhancements, bug fixes, security updates, integrations, and infrastructure changes.
+
+- Analyze the repository and the `ai/` documentation first, then write the Change Request in business language for management and CAB readers.
+- Store the Change Request at `ai/change-requests/<kebab-case-subject>.md` with risk rating, emergency-change assessment, impact, rollout plan, backout plan, approvals, and confidence scores.
+- Treat changes to authentication, authorization, permissions, encryption, integrations, source-system access, or AI tool scope as High risk or above until analysis proves otherwise.
+- After approval and instruction to proceed, generate `ai/test-cases/<same-filename>.md` and keep the filenames identical for traceability.
+- Trivial, non-functional work (typo fixes, comment or formatting changes) does not require a Change Request.
+
 ## Repository structure
 
 | Path | Responsibility |
@@ -86,6 +99,9 @@ Report exactly what passed, failed, or could not be run. Do not claim production
 | `routes/console.php` | Scheduler declarations |
 | `resources/js/App.vue` | Current SPA implementation |
 | `tests` | PHPUnit unit and feature coverage |
+| `.claude/skills` | Repository skills, including `change-request-generator` |
+| `ai/change-requests` | Management-facing change requests |
+| `ai/test-cases` | Test case documents traceable to change requests |
 
 ## Security invariants
 
@@ -110,4 +126,4 @@ Report exactly what passed, failed, or could not be run. Do not claim production
 
 ## Definition of done
 
-A change is complete when behavior, security, tests, build/runtime registration, and affected documentation agree; known residual risk is recorded; and validation results are reported honestly.
+A change is complete when behavior, security, tests, build/runtime registration, and affected documentation agree; known residual risk is recorded; and validation results are reported honestly. Where a Change Request was required, it is approved and its matching test case document exists.

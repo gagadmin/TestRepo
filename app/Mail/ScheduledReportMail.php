@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\Report;
+use Carbon\CarbonImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Attachment;
@@ -55,7 +56,7 @@ class ScheduledReportMail extends Mailable
         }
 
         $format = fn (?string $date) => filled($date)
-            ? \Carbon\CarbonImmutable::parse($date)->format('d-m-Y')
+            ? CarbonImmutable::parse($date)->format('d-m-Y')
             : null;
 
         return match (true) {

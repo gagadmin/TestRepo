@@ -28,15 +28,21 @@ class Dashboard extends Model
             ->orderByPivot('sort_order');
     }
 
+    /**
+     * Department-scoped visibility reads the user access profile rather than
+     * the single `department` column, so a cross-functional user can be granted
+     * several departments without a broader role.
+     */
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
-        if ($user->roles()->where('name', 'administrator')->exists()) {
+        if ($user->isAdministrator()) {
             return $query;
         }
 
         $roles = $user->roles()->pluck('name');
+        $departments = $user->accessibleDepartments();
 
-        return $query->where(function (Builder $visible) use ($user, $roles) {
+        return $query->where(function (Builder $visible) use ($departments, $roles) {
             $visible->where(function (Builder $enterprise) use ($roles) {
                 $enterprise->where('visibility', 'enterprise')
                     ->where(function (Builder $allowed) use ($roles) {
@@ -46,13 +52,13 @@ class Dashboard extends Model
                             $allowed->orWhereJsonContains('layout->allowed_roles', $role);
                         }
                     });
-            })->orWhere(function (Builder $department) use ($user, $roles) {
+            })->orWhere(function (Builder $department) use ($departments, $roles) {
                 $department->where('visibility', 'department')
-                    ->where(function (Builder $allowed) use ($user, $roles) {
+                    ->where(function (Builder $allowed) use ($departments, $roles) {
                         $allowed->whereRaw('1 = 0');
 
-                        if ($user->department) {
-                            $allowed->orWhere('department', $user->department);
+                        if ($departments !== []) {
+                            $allowed->orWhereIn('department', $departments);
                         }
 
                         foreach ($roles as $role) {

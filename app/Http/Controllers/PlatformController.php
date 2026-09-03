@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\DataSource;
 use App\Models\Report;
 use App\Models\User;
+use App\Services\Security\PasswordPolicyService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -47,7 +48,7 @@ class PlatformController extends Controller
                     'recovery_codes_remaining' => count($user->two_factor_recovery_codes ?? []),
                 ],
                 'password' => [
-                    'must_change' => app(\App\Services\Security\PasswordPolicyService::class)->mustChange($user),
+                    'must_change' => app(PasswordPolicyService::class)->mustChange($user),
                     'age_days' => $user->passwordAgeInDays(),
                 ],
             ],

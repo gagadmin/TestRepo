@@ -7,6 +7,7 @@ use App\Models\Conversation;
 use App\Models\DataSource;
 use App\Models\Message;
 use App\Models\User;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
@@ -212,12 +213,12 @@ class ReportingAssistant
      * what produced "I don't have an ITSM/ticketing connector in this
      * environment" while Freshservice sat connected in Data Sources.
      *
-     * @param  \Illuminate\Support\Collection  $corrections  Approved corrections.
+     * @param  Collection  $corrections  Approved corrections.
      * @param  array<int, string>  $toolNames
      */
     private function instructions(
         User $user,
-        \Illuminate\Support\Collection $corrections,
+        Collection $corrections,
         array $toolNames,
     ): string {
         $timezone = config('app.timezone');

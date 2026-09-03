@@ -12,6 +12,7 @@ use App\Services\Integrations\WebSearchConnector;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 use Tests\TestCase;
@@ -164,7 +165,7 @@ class WebSearchToolTest extends TestCase
 
         $this->assertSame('secret-key', $tool->fresh()->secret_options['api_key']);
         // The raw column must not hold the plaintext key.
-        $raw = \Illuminate\Support\Facades\DB::table('ai_tools')->where('id', $tool->id)->value('secret_options');
+        $raw = DB::table('ai_tools')->where('id', $tool->id)->value('secret_options');
         $this->assertStringNotContainsString('secret-key', (string) $raw);
     }
 
@@ -196,7 +197,12 @@ class WebSearchToolTest extends TestCase
 
     private function searchUser(): User
     {
-        $permission = Permission::create(['name' => WebSearchTool::PERMISSION, 'label' => 'Use web search', 'group' => 'AI']);
+        // `firstOrCreate`, not `create`: migration 2026_07_31_000600 already
+        // seeds `ai.web_search`, so creating it again violates the unique index.
+        $permission = Permission::firstOrCreate(
+            ['name' => WebSearchTool::PERMISSION],
+            ['label' => 'Use web search', 'group' => 'AI'],
+        );
         $role = Role::create(['name' => 'analyst', 'label' => 'Analyst']);
         $role->permissions()->attach($permission->id);
 

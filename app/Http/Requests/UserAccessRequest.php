@@ -28,6 +28,7 @@ class UserAccessRequest extends FormRequest
                 ->unique()
                 ->values()
                 ->all(),
+            ...AccessProfileInput::normalize($this),
         ]);
     }
 
@@ -46,6 +47,7 @@ class UserAccessRequest extends FormRequest
             'is_active' => ['required', 'boolean'],
             'roles' => ['required', 'array', 'min:1', 'max:4'],
             'roles.*' => ['required', 'string', Rule::exists('roles', 'name')],
+            ...AccessProfileInput::rules(),
         ];
     }
 }

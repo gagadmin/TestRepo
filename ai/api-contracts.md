@@ -18,11 +18,21 @@
 | `POST` | `/auth/login` | Guest, throttled | Start a session |
 | `POST` | `/auth/logout` | Authenticated active user | End the session |
 | `GET` | `/api/bootstrap` | Authenticated active user | User, permissions, navigation, and platform summary |
-| `GET` | `/api/admin/users` | `users.view` | Paginated safe user listing with role and department options |
-| `PUT` | `/api/admin/users/{user}` | `users.manage` | Update identity fields, department, roles, and active status |
+| `GET` | `/api/admin/users` | `users.view` | Paginated safe user listing with role, department, and connected-platform options |
+| `POST` | `/api/admin/users` | `users.manage`, throttled | Provision an account with roles and an access profile |
+| `PUT` | `/api/admin/users/{user}` | `users.manage` | Update identity fields, department, access profile, roles, and active status |
 | `GET` | `/api/admin/audit` | `audit.view` | Paginated, filterable audit evidence |
 
 Administrative user updates reject self-deactivation, self-demotion, and removal of the final active administrator. Departments are normalized user attributes, not separately provisioned records: an administrator can enter an existing or new department value while editing a user. Every access update records a safe before/after audit event.
+
+Account create and update additionally accept the user access profile:
+
+| Field | Rules | Meaning |
+| --- | --- | --- |
+| `allowed_departments` | Optional array, max 30 strings of 120 characters | Departments whose department-scoped dashboards and reports the user may view. Values are trimmed and de-duplicated. Omitted or empty falls back to the single `department` value. |
+| `allowed_data_source_ids` | Optional array, max 100 existing data source ids | Per-user platform allow list. Omit or send `null` for no per-user platform restriction; send `[]` to permit no platform. |
+
+The user listing returns `allowed_departments` and `allowed_data_source_ids` exactly as configured (`null` stays `null`, which is distinct from `[]`) plus a derived `effective_departments`, and a `data_sources` catalogue of id, name, type, and status for building the picker. No credential or connection configuration is exposed. The profile only narrows visibility: role permissions continue to gate functional access, and administrators and data-source owners are not narrowed by it.
 
 Audit results are limited to 50 records per page and can be filtered by bounded event text and date range. They include actor identity and audit metadata but never expose credentials or decrypted configuration.
 

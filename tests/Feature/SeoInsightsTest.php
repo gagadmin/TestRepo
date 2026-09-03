@@ -215,7 +215,12 @@ class SeoInsightsTest extends TestCase
 
     private function seoUser(): User
     {
-        $permission = Permission::create(['name' => 'seo.view', 'label' => 'View SEO insights', 'group' => 'SEO']);
+        // `firstOrCreate`, not `create`: migration 2026_07_31_000800 already
+        // seeds `seo.view`, so creating it again violates the unique index.
+        $permission = Permission::firstOrCreate(
+            ['name' => 'seo.view'],
+            ['label' => 'View SEO insights', 'group' => 'SEO'],
+        );
         $role = Role::create(['name' => 'seo_analyst', 'label' => 'SEO Analyst']);
         $role->permissions()->attach($permission->id);
 

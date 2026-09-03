@@ -128,7 +128,7 @@ class TwoFactorService
      * Validate a TOTP code and return the time-step it matched.
      *
      * @param  int|null  $lastUsedTimestep  Reject anything at or before this.
-     * @return int|null  The matched step, or null when invalid or replayed.
+     * @return int|null The matched step, or null when invalid or replayed.
      */
     private function verifyAndReturnTimestep(
         ?string $secret,
@@ -286,7 +286,7 @@ class TwoFactorService
     {
         $writer = new Writer(new ImageRenderer(
             new RendererStyle(200, 0),
-            new SvgImageBackEnd(),
+            new SvgImageBackEnd,
         ));
 
         return $writer->writeString($this->provisioningUri($user, $secret));

@@ -237,9 +237,22 @@ class ReportController extends Controller
         }
 
         if ($visibility === 'department') {
-            abort_unless($request->user()->department, 422, 'A department is required for departmental visibility.');
-            $definition['department'] = $request->user()->department;
-            $definition['allowed_departments'] = [$request->user()->department];
+            /*
+             * Honour an explicitly chosen department, but only one the author is
+             * permitted to view. A multi-department author was otherwise forced
+             * to publish into their primary department label (KI-017), while
+             * accepting the submitted value unchecked would let anyone publish
+             * a report into a department they cannot see.
+             */
+            $author = $request->user();
+            $requested = trim((string) ($definition['department'] ?? ''));
+            $department = $requested !== '' && $author->canViewDepartment($requested)
+                ? $requested
+                : ($author->department ?: ($author->accessibleDepartments()[0] ?? null));
+
+            abort_unless($department, 422, 'A department is required for departmental visibility.');
+            $definition['department'] = $department;
+            $definition['allowed_departments'] = [$department];
             $definition['allowed_roles'] = array_values(array_intersect(
                 $definition['allowed_roles'] ?? [],
                 ['administrator', 'executive']

@@ -291,6 +291,12 @@ class AiReportingTest extends TestCase
         $this->assertDatabaseCount('conversations', 0);
     }
 
+    /**
+     * The allow list is the security boundary: nothing may reach the assistant
+     * that is not an approved read-only tool. Additions belong here only with a
+     * recorded approval — `get_itsm_ticket_summary` came with the Freshservice
+     * ITSM capability, and `web_search_openai` with ADR-002.
+     */
     public function test_tool_registry_contains_only_the_approved_read_tools(): void
     {
         $this->assertSame([
@@ -299,6 +305,8 @@ class AiReportingTest extends TestCase
             'get_procurement_report',
             'get_website_analytics',
             'get_crm_pipeline',
+            'get_itsm_ticket_summary',
+            'web_search_openai',
         ], app(ToolRegistry::class)->names());
     }
 

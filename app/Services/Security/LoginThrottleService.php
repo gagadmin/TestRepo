@@ -4,7 +4,6 @@ namespace App\Services\Security;
 
 use App\Models\AuditLog;
 use App\Models\LoginThrottle;
-use Illuminate\Support\Carbon;
 
 /**
  * Progressive account lockout (CIS 6.2).

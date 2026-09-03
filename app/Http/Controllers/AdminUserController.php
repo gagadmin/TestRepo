@@ -6,6 +6,7 @@ use App\Http\Requests\UserAccessRequest;
 use App\Http\Requests\UserCreateRequest;
 use App\Models\AuditLog;
 use App\Models\Dashboard;
+use App\Models\DataSource;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\Security\PasswordPolicyService;
@@ -38,6 +39,8 @@ class AdminUserController extends Controller
                 'email' => $validated['email'],
                 'password' => $temporaryPassword, // hashed by the model cast
                 'department' => $validated['department'],
+                'allowed_departments' => $validated['allowed_departments'],
+                'allowed_data_source_ids' => $validated['allowed_data_source_ids'],
                 'title' => $validated['title'],
                 'is_active' => $validated['is_active'],
             ]);
@@ -68,6 +71,8 @@ class AdminUserController extends Controller
                 // The password is never audited, only the fact of provisioning.
                 'name' => $user->name,
                 'department' => $user->department,
+                'allowed_departments' => $user->allowed_departments,
+                'allowed_data_source_ids' => $user->allowed_data_source_ids,
                 'roles' => $validated['roles'],
                 'is_active' => $user->is_active,
             ],
@@ -110,6 +115,12 @@ class AdminUserController extends Controller
             ->distinct()
             ->pluck('department')
             ->merge(Dashboard::query()->whereNotNull('department')->distinct()->pluck('department'))
+            // Departments granted only through an access profile would otherwise
+            // vanish from the picker after the first save.
+            ->merge(User::query()
+                ->whereNotNull('allowed_departments')
+                ->pluck('allowed_departments')
+                ->flatMap(fn (mixed $departments) => is_array($departments) ? $departments : []))
             ->filter()
             ->unique()
             ->sort()
@@ -119,6 +130,21 @@ class AdminUserController extends Controller
             'data' => $users->getCollection()->map(fn (User $user) => $this->serialize($user)),
             'roles' => Role::query()->orderBy('label')->get(['name', 'label']),
             'departments' => $departments,
+
+            /*
+             * The connected platforms an administrator can grant. Name, type,
+             * and status only — no credential or configuration material is
+             * exposed to build an access picker.
+             */
+            'data_sources' => DataSource::query()
+                ->orderBy('name')
+                ->get(['id', 'name', 'type', 'status'])
+                ->map(fn (DataSource $source) => [
+                    'id' => $source->id,
+                    'name' => $source->name,
+                    'type' => $source->type,
+                    'status' => $source->status,
+                ]),
             'meta' => [
                 'current_page' => $users->currentPage(),
                 'last_page' => $users->lastPage(),
@@ -161,6 +187,8 @@ class AdminUserController extends Controller
 
         $before = [
             'department' => $user->department,
+            'allowed_departments' => $user->allowed_departments,
+            'allowed_data_source_ids' => $user->allowed_data_source_ids,
             'title' => $user->title,
             'is_active' => $user->is_active,
             'roles' => $user->roles()->pluck('name')->sort()->values()->all(),
@@ -171,6 +199,8 @@ class AdminUserController extends Controller
                 'name' => $validated['name'],
                 'email' => $validated['email'],
                 'department' => $validated['department'],
+                'allowed_departments' => $validated['allowed_departments'],
+                'allowed_data_source_ids' => $validated['allowed_data_source_ids'],
                 'title' => $validated['title'],
                 'is_active' => $validated['is_active'],
             ]);
@@ -189,6 +219,8 @@ class AdminUserController extends Controller
                 'before' => $before,
                 'after' => [
                     'department' => $updated->department,
+                    'allowed_departments' => $updated->allowed_departments,
+                    'allowed_data_source_ids' => $updated->allowed_data_source_ids,
                     'title' => $updated->title,
                     'is_active' => $updated->is_active,
                     'roles' => $updated->roles->pluck('name')->sort()->values()->all(),
@@ -209,6 +241,17 @@ class AdminUserController extends Controller
             'name' => $user->name,
             'email' => $user->email,
             'department' => $user->department,
+
+            /*
+             * The configured profile is returned raw (null stays null) so the
+             * administration screen can distinguish "not configured" from
+             * "configured as empty" — they mean different things to the
+             * visibility gates. `effective_departments` is what the gates will
+             * actually compare against.
+             */
+            'allowed_departments' => $user->allowed_departments,
+            'allowed_data_source_ids' => $user->allowed_data_source_ids,
+            'effective_departments' => $user->accessibleDepartments(),
             'title' => $user->title,
             'is_active' => $user->is_active,
             'last_login_at' => $user->last_login_at,

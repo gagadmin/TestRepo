@@ -18,12 +18,16 @@ export function useNavigation() {
         .getRoutes()
         .filter((route) => route.meta?.nav === group)
         .sort((a, b) => (a.meta.order ?? 0) - (b.meta.order ?? 0))
+        // Entries the user cannot open are dropped rather than returned as
+        // `available: false`. The sidebar previously kept them in the DOM and
+        // hid them with v-show, which still shipped the platform capability map
+        // to every account and left empty group headings behind.
+        .filter((route) => auth.can(route.meta.permission))
         .map((route) => ({
             name: route.name,
             label: route.meta.title,
             icon: route.meta.icon,
             permission: route.meta.permission ?? null,
-            available: auth.can(route.meta.permission),
         })));
 
     return {

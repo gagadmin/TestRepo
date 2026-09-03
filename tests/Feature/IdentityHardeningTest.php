@@ -8,6 +8,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Services\Security\LoginThrottleService;
 use App\Services\Security\PasswordPolicyService;
+use App\Services\Security\SecurityPostureService;
 use App\Services\Security\TwoFactorService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
@@ -563,7 +564,7 @@ class IdentityHardeningTest extends TestCase
         $admin->refresh();
         $service->confirmEnrolment($admin, $this->currentCode($admin));
 
-        $compliance = app(\App\Services\Security\SecurityPostureService::class)->compliance();
+        $compliance = app(SecurityPostureService::class)->compliance();
         $byId = collect($compliance['controls'])->keyBy('id');
 
         $this->assertTrue($byId['mfa']['passed'], $byId['mfa']['detail']);
@@ -575,7 +576,7 @@ class IdentityHardeningTest extends TestCase
     {
         $this->administrator(); // created without enrolling
 
-        $compliance = app(\App\Services\Security\SecurityPostureService::class)->compliance();
+        $compliance = app(SecurityPostureService::class)->compliance();
         $mfa = collect($compliance['controls'])->firstWhere('id', 'mfa');
 
         $this->assertFalse($mfa['passed']);
@@ -584,7 +585,7 @@ class IdentityHardeningTest extends TestCase
 
     public function test_mfa_coverage_is_measured_not_assumed(): void
     {
-        $identity = app(\App\Services\Security\SecurityPostureService::class)->identityAccess();
+        $identity = app(SecurityPostureService::class)->identityAccess();
 
         $this->assertTrue($identity['mfa']['supported']);
         $this->assertTrue($identity['mfa']['enabled']);

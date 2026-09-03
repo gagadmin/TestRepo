@@ -33,6 +33,7 @@ import Select from 'primevue/select';
 import Tag from 'primevue/tag';
 import Textarea from 'primevue/textarea';
 import UserAccountLink from '@/components/layout/UserAccountLink.vue';
+import { formatLatency, renderAnswer } from '@/composables/useAnswerFormat';
 
 const loading = ref(true);
 const submitting = ref(false);
@@ -47,6 +48,7 @@ const adminUsers = ref({
     data: [],
     roles: [],
     departments: [],
+    data_sources: [],
     meta: { current_page: 1, last_page: 1, total: 0 },
 });
 const adminUsersLoading = ref(false);
@@ -62,6 +64,17 @@ const userAccessForm = ref({
     title: '',
     is_active: true,
     roles: [],
+
+    /*
+     * Access profile. `allowed_departments` is the multi-department grant that
+     * replaces inferring visibility from the single department label.
+     * `restrict_data_sources` distinguishes "no platform restriction" (send
+     * null) from "these platforms only" (send the list) — the two mean
+     * different things to the server and must not collapse into one another.
+     */
+    allowed_departments: [],
+    restrict_data_sources: false,
+    allowed_data_source_ids: [],
 });
 
 /* --- Create user -------------------------------------------------------- */
@@ -81,6 +94,9 @@ function emptyCreateUserForm() {
         title: '',
         is_active: true,
         roles: ['executive'],
+        allowed_departments: [],
+        restrict_data_sources: false,
+        allowed_data_source_ids: [],
     };
 }
 
@@ -100,6 +116,7 @@ async function saveNewUser() {
             ...createUserForm.value,
             department: createUserForm.value.department.trim() || null,
             title: createUserForm.value.title.trim() || null,
+            ...accessProfilePayload(createUserForm.value),
         });
 
         // Hold the dialog open on the credentials panel: closing it loses the
@@ -154,6 +171,7 @@ const chatMessages = ref([]);
 const chatInput = ref('');
 const aiLoading = ref(false);
 const chatSending = ref(false);
+const copiedMessageId = ref(null);
 const aiError = ref('');
 const dashboards = ref([]);
 const activeDashboard = ref(null);
@@ -269,6 +287,16 @@ const overviewDate = computed(() => new Intl.DateTimeFormat(undefined, {
     month: 'long',
 }).format(currentDateTime.value));
 
+/*
+ * Navigation lists only what the user may actually open.
+ *
+ * These entries were previously rendered for everyone and merely disabled,
+ * which advertised capabilities the user could not use and disclosed the
+ * platform capability map to every account. Filtering here rather than in the
+ * template means no hidden entry reaches the DOM at all, and an empty group
+ * hides its own heading. This is presentation only — every route behind these
+ * entries stays permission-checked on the server.
+ */
 const navItems = computed(() => {
     const permissions = platform.value?.user?.permissions ?? [];
 
@@ -279,7 +307,7 @@ const navItems = computed(() => {
         { id: 'reports', label: 'Reports', icon: 'pi-file', available: permissions.includes('reports.view') },
         { id: 'schedules', label: 'Schedules', icon: 'pi-clock', available: permissions.includes('reports.schedule') },
         { id: 'analytics', label: 'Advanced analytics', icon: 'pi-chart-line', available: permissions.includes('analytics.view') },
-    ];
+    ].filter((item) => item.available);
 });
 
 const currentViewLabel = computed(() => ({
@@ -357,7 +385,7 @@ const adminItems = computed(() => {
         { id: 'users', label: 'Users & access', icon: 'pi-users', available: permissions.includes('users.view') },
         { id: 'security', label: 'Security', icon: 'pi-lock', available: permissions.includes('security.view') },
         { id: 'audit', label: 'Audit trail', icon: 'pi-shield', available: permissions.includes('audit.view') },
-    ];
+    ].filter((item) => item.available);
 });
 
 function emptySourceForm() {
@@ -558,9 +586,22 @@ function openUserAccess(user) {
         title: user.title ?? '',
         is_active: user.is_active,
         roles: user.roles.map((role) => role.name),
+        allowed_departments: [...(user.allowed_departments ?? [])],
+        restrict_data_sources: Array.isArray(user.allowed_data_source_ids),
+        allowed_data_source_ids: [...(user.allowed_data_source_ids ?? [])],
     };
     adminUsersError.value = '';
     userAccessDialogOpen.value = true;
+}
+
+/** Shapes the access profile the way the API distinguishes its three states. */
+function accessProfilePayload(form) {
+    return {
+        allowed_departments: form.allowed_departments ?? [],
+        allowed_data_source_ids: form.restrict_data_sources
+            ? form.allowed_data_source_ids ?? []
+            : null,
+    };
 }
 
 async function saveUserAccess() {
@@ -572,6 +613,7 @@ async function saveUserAccess() {
             ...userAccessForm.value,
             department: userAccessForm.value.department.trim() || null,
             title: userAccessForm.value.title.trim() || null,
+            ...accessProfilePayload(userAccessForm.value),
         });
         userAccessDialogOpen.value = false;
         await loadAdminUsers(adminUsers.value.meta.current_page);
@@ -870,6 +912,22 @@ async function sendChat() {
 async function refreshConversations() {
     const { data } = await axios.get('/api/ai/conversations');
     conversations.value = data.data;
+}
+
+/**
+ * An answer's usual next stop is a mail or a deck, so offer the raw Markdown
+ * rather than making the reader drag-select a rendered card.
+ */
+async function copyAnswer(message) {
+    try {
+        await navigator.clipboard.writeText(message.content);
+        copiedMessageId.value = message.id;
+        window.setTimeout(() => {
+            if (copiedMessageId.value === message.id) copiedMessageId.value = null;
+        }, 2000);
+    } catch (error) {
+        aiError.value = 'The answer could not be copied to the clipboard.';
+    }
 }
 
 async function removeConversation(conversation) {
@@ -2054,28 +2112,26 @@ onBeforeUnmount(() => {
             </div>
 
             <nav aria-label="Primary navigation">
-                <p class="nav-label">Workspace</p>
+                <p v-if="navItems.length" class="nav-label">Workspace</p>
                 <button
                     v-for="item in navItems"
                     :key="item.label"
-                    :class="['nav-item', { active: currentView === item.id, disabled: !item.available }]"
-                    :disabled="!item.available"
+                    :class="['nav-item', { active: currentView === item.id }]"
                     type="button"
-                    @click="item.available && item.id ? setView(item.id) : null"
+                    @click="setView(item.id)"
                 >
                     <i :class="['pi', item.icon]"></i>
                     <span>{{ item.label }}</span>
                     <small v-if="item.phase">{{ item.phase }}</small>
                 </button>
 
-                <p class="nav-label admin-label">Administration</p>
+                <p v-if="adminItems.length" class="nav-label admin-label">Administration</p>
                 <button
                     v-for="item in adminItems"
                     :key="item.label"
-                    :class="['nav-item', { active: currentView === item.id, disabled: !item.available }]"
-                    :disabled="!item.available"
+                    :class="['nav-item', { active: currentView === item.id }]"
                     type="button"
-                    @click="item.available && item.id ? setView(item.id) : null"
+                    @click="setView(item.id)"
                 >
                     <i :class="['pi', item.icon]"></i>
                     <span>{{ item.label }}</span>
@@ -2296,24 +2352,59 @@ onBeforeUnmount(() => {
                                     <div class="message-body">
                                         <div class="message-author">
                                             <strong>{{ message.role === 'assistant' ? 'Ask GAHolding' : platform.user.name }}</strong>
-                                            <span v-if="message.latency_ms">{{ message.latency_ms }} ms</span>
                                         </div>
-                                        <p>{{ message.content }}</p>
-                                        <div v-if="message.tool_calls?.length" class="tool-activity">
-                                            <span v-for="tool in message.tool_calls" :key="`${message.id}-${tool.name}`">
-                                                <i class="pi pi-bolt"></i>{{ tool.name.replaceAll('_', ' ') }}
-                                            </span>
+
+                                        <!--
+                                            Only the assistant's side is rendered as Markdown. What the
+                                            user typed is shown verbatim, so a stray asterisk in a
+                                            question is never reinterpreted as formatting.
+                                        -->
+                                        <div v-if="message.role === 'assistant'" class="answer-card">
+                                            <!-- eslint-disable-next-line vue/no-v-html -- escaped upstream in useAnswerFormat -->
+                                            <div class="answer-prose" v-html="renderAnswer(message.content)"></div>
+
+                                            <footer class="answer-meta">
+                                                <div class="answer-meta-row">
+                                                    <div v-if="message.citations?.length" class="message-citations">
+                                                        <span>Sourced from</span>
+                                                        <Tag
+                                                            v-for="citation in message.citations"
+                                                            :key="`${message.id}-${citation.source_id}`"
+                                                            severity="secondary"
+                                                            :value="citation.source_name"
+                                                            icon="pi pi-database"
+                                                        />
+                                                    </div>
+
+                                                    <button type="button" class="answer-copy" @click="copyAnswer(message)">
+                                                        <i :class="['pi', copiedMessageId === message.id ? 'pi-check' : 'pi-copy']"></i>
+                                                        {{ copiedMessageId === message.id ? 'Copied' : 'Copy' }}
+                                                    </button>
+                                                </div>
+
+                                                <!--
+                                                    Tool trace and response time are the audit trail, not the
+                                                    answer. Folded away so the figures lead, but one click from
+                                                    anyone who has to defend where a number came from.
+                                                -->
+                                                <details v-if="message.tool_calls?.length || message.latency_ms" class="answer-trace">
+                                                    <summary>How this was produced</summary>
+                                                    <div class="tool-activity">
+                                                        <span
+                                                            v-for="tool in message.tool_calls"
+                                                            :key="`${message.id}-${tool.name}`"
+                                                        >
+                                                            <i class="pi pi-bolt"></i>{{ tool.name.replaceAll('_', ' ') }}
+                                                        </span>
+                                                        <span v-if="message.latency_ms">
+                                                            <i class="pi pi-clock"></i>Answered in {{ formatLatency(message.latency_ms) }}
+                                                        </span>
+                                                    </div>
+                                                </details>
+                                            </footer>
                                         </div>
-                                        <div v-if="message.citations?.length" class="message-citations">
-                                            <span>Sources</span>
-                                            <Tag
-                                                v-for="citation in message.citations"
-                                                :key="`${message.id}-${citation.source_id}`"
-                                                severity="secondary"
-                                                :value="citation.source_name"
-                                                icon="pi pi-database"
-                                            />
-                                        </div>
+
+                                        <p v-else>{{ message.content }}</p>
                                     </div>
                                 </article>
 
@@ -3624,6 +3715,52 @@ onBeforeUnmount(() => {
                         />
                     </div>
 
+                    <div class="field">
+                        <label for="access-allowed-departments">Departments this user may view</label>
+                        <MultiSelect
+                            id="access-allowed-departments"
+                            v-model="userAccessForm.allowed_departments"
+                            :options="adminUsers.departments"
+                            display="chip"
+                            filter
+                            fluid
+                        />
+                        <small>
+                            Department-scoped dashboards and reports are shown only for these
+                            departments. Leave empty to fall back to the department above.
+                            Roles still decide which features the user can open.
+                        </small>
+                    </div>
+
+                    <label class="schedule-active-control">
+                        <input v-model="userAccessForm.restrict_data_sources" type="checkbox" />
+                        <span>
+                            <strong>Restrict to specific platforms</strong>
+                            <small>
+                                When off, platform access follows the authorized roles and
+                                departments configured on each data source.
+                            </small>
+                        </span>
+                    </label>
+
+                    <div v-if="userAccessForm.restrict_data_sources" class="field">
+                        <label for="access-allowed-sources">Platforms this user may view</label>
+                        <MultiSelect
+                            id="access-allowed-sources"
+                            v-model="userAccessForm.allowed_data_source_ids"
+                            :options="adminUsers.data_sources"
+                            option-label="name"
+                            option-value="id"
+                            display="chip"
+                            filter
+                            fluid
+                        />
+                        <small>
+                            Selecting none permits no platform. Administrators and the owner of
+                            a data source are unaffected by this restriction.
+                        </small>
+                    </div>
+
                     <label class="schedule-active-control">
                         <input v-model="userAccessForm.is_active" type="checkbox" />
                         <span>
@@ -4344,6 +4481,43 @@ onBeforeUnmount(() => {
                             fluid
                         />
                         <small>Roles determine what the account can do. Assign the least that fits the job.</small>
+                    </div>
+
+                    <div class="field">
+                        <label for="new-user-departments">Departments this user may view</label>
+                        <MultiSelect
+                            id="new-user-departments"
+                            v-model="createUserForm.allowed_departments"
+                            :options="adminUsers.departments"
+                            display="chip"
+                            filter
+                            placeholder="Defaults to the department above"
+                            fluid
+                        />
+                        <small>Roles decide which features the account can open; this decides whose data it sees.</small>
+                    </div>
+
+                    <label class="schedule-active-control">
+                        <input v-model="createUserForm.restrict_data_sources" type="checkbox" />
+                        <span>
+                            <strong>Restrict to specific platforms</strong>
+                            <small>When off, platform access follows the rules on each data source.</small>
+                        </span>
+                    </label>
+
+                    <div v-if="createUserForm.restrict_data_sources" class="field">
+                        <label for="new-user-sources">Platforms this user may view</label>
+                        <MultiSelect
+                            id="new-user-sources"
+                            v-model="createUserForm.allowed_data_source_ids"
+                            :options="adminUsers.data_sources"
+                            option-label="name"
+                            option-value="id"
+                            display="chip"
+                            filter
+                            fluid
+                        />
+                        <small>Selecting none permits no platform.</small>
                     </div>
 
                     <label class="schedule-active-control">

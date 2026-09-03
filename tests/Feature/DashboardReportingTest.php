@@ -93,7 +93,16 @@ class DashboardReportingTest extends TestCase
             'report_id' => $report->id,
             'row_count' => 1,
         ]);
-        Http::assertSent(fn ($request) => $request->url() === 'https://erp.example.com/api/reports?report_type=sales&region=Dubai');
+        /*
+         * The connector forwards only the parameters a governed endpoint is
+         * known to understand (`report_type`, and the date/limit bounds when
+         * set). Dimension filters such as `region` are applied to the retrieved
+         * rows instead, and internal keys such as `handler` and `dimension`
+         * must never reach the query string. See KI-018.
+         */
+        Http::assertSent(fn ($request) => $request->url() === 'https://erp.example.com/api/reports?report_type=sales');
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), 'handler=')
+            || str_contains($request->url(), 'dimension='));
     }
 
     public function test_report_can_be_exported_as_real_xlsx_and_pdf_files(): void

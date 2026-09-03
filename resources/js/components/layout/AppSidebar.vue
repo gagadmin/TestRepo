@@ -31,10 +31,9 @@ async function signOut() {
         </div>
 
         <nav aria-label="Primary navigation">
-            <p class="nav-label">Workspace</p>
+            <p v-if="workspaceItems.length" class="nav-label">Workspace</p>
             <RouterLink
                 v-for="item in workspaceItems"
-                v-show="item.available"
                 :key="item.name"
                 :to="{ name: item.name }"
                 class="nav-item"
@@ -44,10 +43,9 @@ async function signOut() {
                 <span>{{ item.label }}</span>
             </RouterLink>
 
-            <p class="nav-label admin-label">Administration</p>
+            <p v-if="adminItems.length" class="nav-label admin-label">Administration</p>
             <RouterLink
                 v-for="item in adminItems"
-                v-show="item.available"
                 :key="item.name"
                 :to="{ name: item.name }"
                 class="nav-item"

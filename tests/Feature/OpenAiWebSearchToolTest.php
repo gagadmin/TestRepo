@@ -135,7 +135,12 @@ class OpenAiWebSearchToolTest extends TestCase
 
     private function searchUser(): User
     {
-        $permission = Permission::create(['name' => OpenAiWebSearchTool::PERMISSION, 'label' => 'Use web search', 'group' => 'AI']);
+        // `firstOrCreate`, not `create`: migration 2026_07_31_000600 already
+        // seeds `ai.web_search`, so creating it again violates the unique index.
+        $permission = Permission::firstOrCreate(
+            ['name' => OpenAiWebSearchTool::PERMISSION],
+            ['label' => 'Use web search', 'group' => 'AI'],
+        );
         $role = Role::create(['name' => 'analyst', 'label' => 'Analyst']);
         $role->permissions()->attach($permission->id);
 

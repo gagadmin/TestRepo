@@ -8,7 +8,7 @@ Laravel migrations are the authoritative schema definition. PostgreSQL is the in
 
 | Table | Purpose and important fields |
 | --- | --- |
-| `users` | Name, unique email, department, title, active flag, last login, password |
+| `users` | Name, unique email, department, access profile (`allowed_departments`, `allowed_data_source_ids`), title, active flag, last login, password |
 | `roles` | Unique machine name, label, description |
 | `permissions` | Unique machine name, label, group |
 | `role_user` | Composite-key user-to-role assignment |
@@ -19,6 +19,19 @@ Laravel migrations are the authoritative schema definition. PostgreSQL is the in
 | `jobs`, `job_batches`, `failed_jobs` | Database queue state |
 
 `users.department` is the current department catalog and assignment mechanism: it is a normalized nullable string maintained from Users & Access. Existing values are offered as suggestions, while a new value can be entered without a separate department record. Department values participate in dashboard, report, and data-source visibility; they do not automatically create dashboard definitions.
+
+### User access profile
+
+Two nullable JSON columns hold the administrator-configured data visibility of an account. Both narrow visibility on top of role permissions and never widen it; administrators bypass both.
+
+| Column | Meaning |
+| --- | --- |
+| `users.allowed_departments` | Departments whose department-scoped dashboards and reports the user may see. Empty or null falls back to the single `users.department` label, which preserves the behaviour of accounts created before the profile existed. |
+| `users.allowed_data_source_ids` | Per-user platform allow list. `null` means no per-user platform restriction, so access follows `data_sources.settings.allowed_roles`/`allowed_departments` alone. An array restricts the user to those sources, and `[]` therefore permits none. A source owner and any administrator are unaffected. |
+
+`User::accessibleDepartments()`, `User::canViewDepartment()`, and `User::restrictedDataSourceIds()` are the only readers of these columns. `Dashboard::scopeVisibleTo`, `Report::scopeVisibleTo`, and `DataSource::isAccessibleBy` consume them, so every route that already used those gates inherits the profile.
+
+Migration `2026_09_03_000100_add_user_access_profile_columns` is additive and backfills `allowed_departments` with each existing `department` value, so the release does not change any user effective visibility.
 
 ## Integration tables
 

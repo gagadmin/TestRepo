@@ -181,7 +181,7 @@ h1, h2, strong, .brand { font-family: 'Manrope', sans-serif; }
 .chat-panel-header > div:nth-child(2) { flex: 1; display: grid; }
 .chat-panel-header strong { font-size: 12px; }
 .chat-panel-header span { color: var(--muted); font-size: 10px; }
-.message-stream { min-height: 440px; max-height: 620px; overflow-y: auto; padding: 28px clamp(20px, 5vw, 62px); }
+.message-stream { min-height: 440px; max-height: 620px; overflow-y: auto; padding: 30px clamp(20px, 5vw, 62px); background: #fafbfb; }
 .chat-welcome { min-height: 430px; display: grid; place-content: center; justify-items: center; text-align: center; }
 .welcome-spark { width: 58px; height: 58px; display: grid; place-items: center; color: var(--teal-dark); border-radius: 18px; background: var(--mint); font-size: 21px; }
 .chat-welcome h2 { margin: 19px 0 7px; font-size: 24px; letter-spacing: -.035em; }
@@ -192,19 +192,51 @@ h1, h2, strong, .brand { font-family: 'Manrope', sans-serif; }
 .suggested-prompts i { color: var(--teal-dark); }
 .suggested-prompts span { font-size: 11px; line-height: 1.35; }
 .available-sources { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 7px; margin-top: 22px; color: #8c9794; font-size: 10px; }
-.chat-message { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 12px; margin-bottom: 25px; }
+.chat-message { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 14px; margin-bottom: 34px; }
 .chat-message.user { margin-left: min(90px, 10%); }
-.message-avatar { width: 32px; height: 32px; border-radius: 10px; font-size: 12px; }
+.message-avatar { width: 34px; height: 34px; border-radius: 11px; font-size: 12px; }
 .chat-message.user .message-avatar { color: #37534e; background: #e7eeec; }
 .message-body { min-width: 0; }
-.message-author { display: flex; align-items: center; gap: 9px; margin-bottom: 7px; }
+.message-author { display: flex; align-items: center; gap: 9px; margin-bottom: 9px; }
 .message-author strong { font-size: 11px; }
-.message-author span { color: #99a39f; font-size: 9px; }
-.message-body > p { margin: 0; color: #384844; font-size: 13px; line-height: 1.72; white-space: pre-wrap; }
-.tool-activity, .message-citations { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 12px; }
-.tool-activity span { display: flex; align-items: center; gap: 5px; padding: 5px 8px; color: #56736d; border-radius: 6px; background: #eef6f4; font-size: 9px; text-transform: capitalize; }
+.chat-message.user .message-body > p { margin: 0; padding: 13px 17px; color: #33433f; border-radius: 14px; background: #edf2f1; font-size: 14px; line-height: 1.65; white-space: pre-wrap; }
+
+/*
+ * An answer is read by executives and pasted into board packs, so it is styled
+ * as a short document rather than a chat bubble: one calm card, a measure that
+ * does not force the eye across the full panel, figures given the display face,
+ * and the tool trace folded below so the numbers lead.
+ */
+.answer-card { padding: 22px 26px 15px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: 0 6px 22px rgba(20, 45, 41, .045); }
+.answer-prose { max-width: 68ch; color: #2c3b37; font-size: 15px; line-height: 1.78; }
+.answer-prose > *:first-child { margin-top: 0; }
+.answer-prose > *:last-child { margin-bottom: 0; }
+.answer-prose p { margin: 0 0 14px; }
+.answer-prose h4 { margin: 22px 0 10px; color: var(--teal-dark); font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.answer-prose strong { font-family: 'Manrope', sans-serif; color: var(--navy); font-weight: 700; }
+/* Caveats -- "not available", "estimated" -- must read as secondary, not shout. */
+.answer-prose em { color: var(--muted); font-style: italic; }
+.answer-prose code { padding: 2px 6px; color: #0a6b61; border-radius: 5px; background: var(--mint); font-size: 13px; }
+.answer-prose ul, .answer-prose ol { margin: 0 0 14px; padding-left: 20px; }
+.answer-prose li { margin-bottom: 8px; padding-left: 4px; }
+.answer-prose li::marker { color: var(--teal); }
+.answer-prose li:last-child { margin-bottom: 0; }
+.answer-prose hr { margin: 20px 0; border: 0; border-top: 1px solid var(--line); }
+.answer-meta { margin-top: 18px; padding-top: 13px; border-top: 1px solid #eef2f1; }
+.answer-meta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.answer-copy { display: flex; align-items: center; gap: 6px; margin-left: auto; padding: 0; color: #8c9794; border: 0; background: none; cursor: pointer; font-size: 10px; }
+.answer-copy:hover { color: var(--teal-dark); }
+.answer-trace summary { display: inline-block; margin-top: 9px; color: #8c9794; cursor: pointer; font-size: 10px; list-style: none; }
+.answer-trace summary::-webkit-details-marker { display: none; }
+.answer-trace summary::after { content: ' be'; }
+.answer-trace[open] summary::after { content: ' b4'; }
+.answer-trace summary:hover { color: var(--teal-dark); }
+.tool-activity, .message-citations { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.answer-trace .tool-activity { margin-top: 9px; }
+.tool-activity span { display: flex; align-items: center; gap: 5px; padding: 5px 9px; color: #56736d; border-radius: 6px; background: #eef6f4; font-size: 9px; text-transform: capitalize; }
 .tool-activity i { color: var(--teal-dark); }
 .message-citations > span { color: #8c9794; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
+.message-citations .p-tag { padding: 4px 9px; color: #40544f; border: 1px solid var(--line); background: #f4f8f7; font-size: 9px; font-weight: 600; }
 .thinking { display: flex; align-items: center; gap: 4px; padding-top: 8px; }
 .thinking > span { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); animation: pulse-dot 1.2s infinite ease-in-out; }
 .thinking > span:nth-child(2) { animation-delay: .15s; }
@@ -527,6 +559,8 @@ h1, h2, strong, .brand { font-family: 'Manrope', sans-serif; }
     .suggested-prompts { grid-template-columns: 1fr; }
     .suggested-prompts button { min-height: 65px; }
     .message-stream { padding: 22px 16px; }
+    .answer-card { padding: 18px 18px 13px; }
+    .answer-prose { font-size: 14px; line-height: 1.72; }
     .chat-composer { margin: 0 14px 14px; }
     .chat-panel-header { padding: 0 14px; }
     .chat-panel-header > .p-tag { display: none; }

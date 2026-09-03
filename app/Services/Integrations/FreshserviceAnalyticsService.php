@@ -7,6 +7,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 class FreshserviceAnalyticsService
@@ -651,7 +652,7 @@ class FreshserviceAnalyticsService
     private function loadCachedNames(int $sourceId, string $entityType): array
     {
         try {
-            return \Illuminate\Support\Facades\DB::table('freshservice_directory_cache')
+            return DB::table('freshservice_directory_cache')
                 ->where('data_source_id', $sourceId)
                 ->where('entity_type', $entityType)
                 ->pluck('name', 'entity_id')

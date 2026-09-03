@@ -5,6 +5,8 @@
 | Session authentication | Implemented | Auth controller, login throttling, active-user middleware |
 | RBAC | Implemented | Roles, permissions, route middleware, visibility scopes |
 | User and access administration | Implemented | Searchable user view, role/department/title assignment, activation controls, self/last-admin protections |
+| User access profile | Implemented | Administrator-configured multi-department and per-user platform visibility, consumed by dashboard, report, and data-source gates |
+| Permission-based navigation | Implemented | Navigation renders only entries the user may open; restricted routes stay refused server-side |
 | Audit trail | Implemented | Filterable administrative view of authentication, mutating-request, export, AI, integration, and access-change records |
 | Enterprise sources | Implemented as generic governed HTTP connector | Integration services, encrypted configuration, connection tests |
 | Google Search Console connector | Implemented; live query accepted for aboudcar.com and property access verified for gwm.sy | Read-only service-account OAuth, property verification, selectable dashboard explorer, Search Analytics reports, AI tool access, and bounded administrative preview |

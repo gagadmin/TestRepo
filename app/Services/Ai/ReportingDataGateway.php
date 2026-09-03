@@ -68,10 +68,16 @@ class ReportingDataGateway
             'date_to' => $query['date_to'] ?? null,
             'limit' => $query['limit'] ?? null,
             // Access scope, not just the user id: two users with identical
-            // scope may safely share an entry.
+            // scope may safely share an entry. The scope must cover everything
+            // that can change the permitted rows, which since access profiles
+            // means the whole permitted department set and the platform
+            // restriction — not the single `department` label. Two users in the
+            // same primary department with different profiles are different
+            // scopes.
             'scope' => $user ? [
                 'roles' => $user->roles()->pluck('name')->sort()->values()->all(),
-                'department' => $user->department,
+                'departments' => $user->accessibleDepartments(),
+                'data_sources' => $user->restrictedDataSourceIds(),
             ] : null,
         ]));
 

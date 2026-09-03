@@ -573,7 +573,10 @@ class AiToolConfigurationTest extends TestCase
 
     private function analyst(): User
     {
-        $this->grant('analyst', ['reports.view']);
+        // `ai.chat` gates the whole `/api/ai` group, including status and
+        // correction reporting, so an analyst without it gets 403 rather than
+        // exercising the behaviour under test.
+        $this->grant('analyst', ['reports.view', 'ai.chat']);
 
         $user = User::factory()->create([
             'is_active' => true,

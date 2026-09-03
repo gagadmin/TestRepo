@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\DataSource;
 use App\Models\SeoProfile;
-use App\Models\SeoResearchSnapshot;
 use App\Models\User;
 use App\Services\Seo\SeoWebResearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;

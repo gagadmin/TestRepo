@@ -3,7 +3,6 @@
 namespace App\Console\Commands;
 
 use App\Models\DataSource;
-use App\Services\Integrations\FreshserviceAnalyticsService;
 use App\Services\Integrations\IntegrationRequestFactory;
 use App\Services\Integrations\IntegrationUrlGuard;
 use Illuminate\Console\Command;
@@ -32,6 +31,7 @@ class RefreshFreshserviceDirectory extends Command
 
         if ($sources->isEmpty()) {
             $this->info('No Freshservice sources found.');
+
             return self::SUCCESS;
         }
 
@@ -43,6 +43,7 @@ class RefreshFreshserviceDirectory extends Command
         foreach ($sources as $source) {
             if (! $this->refreshSource($source, $urlGuard, $requests)) {
                 $failureCount++;
+
                 continue;
             }
             $successCount++;
@@ -89,9 +90,11 @@ class RefreshFreshserviceDirectory extends Command
             return true;
         } catch (RuntimeException $e) {
             $this->error("    ✗ Error: {$e->getMessage()}");
+
             return false;
         } catch (\Exception $e) {
             $this->error("    ✗ Unexpected error: {$e->getMessage()}");
+
             return false;
         }
     }

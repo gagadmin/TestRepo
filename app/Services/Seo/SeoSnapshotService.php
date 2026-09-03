@@ -23,19 +23,38 @@ class SeoSnapshotService
         $summary = $data['summary'] ?? [];
 
         return DB::transaction(function () use ($source, $dimension, $rows, $summary, $windowFrom, $windowTo) {
-            $snapshot = SeoSnapshot::updateOrCreate(
-                [
+            $attributes = [
+                'site_url' => data_get($source->settings, 'site_url'),
+                'window_from' => $windowFrom,
+                'window_to' => $windowTo,
+                'summary' => $summary,
+            ];
+
+            /*
+             * The lookup uses whereDate rather than updateOrCreate on the raw
+             * value. `captured_on` has a `date` cast, so it is written as
+             * "Y-m-d 00:00:00" while the caller supplies "Y-m-d": on an engine
+             * that compares the column as text (SQLite) the two never match, so
+             * a re-capture inserted a second row and hit the unique index
+             * instead of replacing the first. whereDate normalises both sides
+             * on every supported engine.
+             */
+            $snapshot = SeoSnapshot::query()
+                ->where('data_source_id', $source->id)
+                ->where('dimension', $dimension)
+                ->whereDate('captured_on', $windowTo)
+                ->first();
+
+            if ($snapshot) {
+                $snapshot->update($attributes);
+            } else {
+                $snapshot = SeoSnapshot::create([
                     'data_source_id' => $source->id,
                     'captured_on' => $windowTo,
                     'dimension' => $dimension,
-                ],
-                [
-                    'site_url' => data_get($source->settings, 'site_url'),
-                    'window_from' => $windowFrom,
-                    'window_to' => $windowTo,
-                    'summary' => $summary,
-                ],
-            );
+                    ...$attributes,
+                ]);
+            }
 
             // Replace rows for idempotency.
             $snapshot->rows()->delete();

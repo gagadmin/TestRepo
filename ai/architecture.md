@@ -30,6 +30,7 @@ Exports -> Dompdf and PhpSpreadsheet
 - Axios uses same-origin cookies and the Laravel XSRF cookie.
 - All application and JSON routes currently live in `routes/web.php`, so `/api/*` endpoints use the web/session middleware stack.
 - Laravel controllers validate requests, enforce model visibility, and delegate business logic to services.
+- Navigation renders only the entries the signed-in user may open, in both the migrated sidebar (`useNavigation`, derived from `route.meta.permission`) and the legacy workspace sidebar. This is presentation only: hidden entries are still permission-checked server-side, so the interface never becomes the control.
 - Eloquent models persist users, governance records, integration configuration, conversations, reports, snapshots, schedules, and insights.
 - Queue jobs generate and deliver scheduled reports. Console schedules dispatch due reports every minute and purge expired snapshots daily.
 
@@ -61,7 +62,7 @@ Exports -> Dompdf and PhpSpreadsheet
 ### Report and dashboard
 
 1. The user requests a visible report or dashboard.
-2. Laravel applies permission and ownership/visibility scopes.
+2. Laravel applies permission and ownership/visibility scopes, including the administrator-configured user access profile (permitted departments and permitted platforms). The profile only narrows what the role permission already allows; administrators and resource owners are not narrowed by it. See `ai/database-schema.md` for the columns and `ai/api-contracts.md` for the administration contract.
 3. `ReportDataService` fetches a governed source response and applies report filters.
 4. A masked, encrypted snapshot is stored.
 5. Dashboards render snapshot-derived widgets; exports reuse authorized report data.

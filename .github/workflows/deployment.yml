@@ -1,0 +1,53 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - staging  # Staging: when PR is merged to staging
+
+jobs: 
+  # ================================
+  # STAGING DEPLOYMENT
+  # ================================
+  deploy-staging:
+    runs-on: ubuntu-latest
+    #if: github.ref == 'refs/heads/staging'
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Deploy to Staging Server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            set -e
+            echo "🚀 Deploying to Staging..."
+            cd /home/moikzzte/assets.moikzz.tech
+
+            # Enter maintenance mode so no request hits a half-deployed app.
+            #php artisan down --render="errors::503" || true
+
+            # Fail fast if the working tree has local changes that would be lost.
+            git fetch origin staging
+            git reset --hard origin/staging
+
+            # composer install --no-dev --optimize-autoloader --no-interaction
+            # npm ci
+            # npm run build
+
+            php artisan migrate --force
+
+            # Rebuild optimized caches (clear then cache for prod performance).
+            php artisan optimize:clear
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+
+            #supervisorctl restart all
+
+            #php artisan up
+            echo "✅ Staging Deployment Done!"

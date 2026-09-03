@@ -138,12 +138,27 @@ class AdminUserController extends Controller
              */
             'data_sources' => DataSource::query()
                 ->orderBy('name')
-                ->get(['id', 'name', 'type', 'status'])
+                ->get(['id', 'name', 'type', 'status', 'settings'])
                 ->map(fn (DataSource $source) => [
                     'id' => $source->id,
                     'name' => $source->name,
                     'type' => $source->type,
                     'status' => $source->status,
+
+                    /*
+                     * Whether the source itself authorises anybody. Granting a
+                     * platform to a user narrows an audience the source already
+                     * defines; it does not create one. A source naming neither a
+                     * role nor a department reaches nobody but its owner and
+                     * administrators, so selecting it for a user has no effect -
+                     * a derived boolean lets the picker say so instead of leaving
+                     * the administrator to discover it from a user report.
+                     *
+                     * Deliberately a flag rather than the lists themselves: no
+                     * configuration material belongs in this payload.
+                     */
+                    'authorizes_anyone' => filled($source->settings['allowed_roles'] ?? [])
+                        || filled($source->settings['allowed_departments'] ?? []),
                 ]),
             'meta' => [
                 'current_page' => $users->currentPage(),

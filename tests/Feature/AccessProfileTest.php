@@ -309,10 +309,30 @@ class AccessProfileTest extends TestCase
             ->assertJsonPath('data_sources.0.name', 'Group ERP');
 
         $this->assertSame(
-            ['id', 'name', 'type', 'status'],
+            ['id', 'name', 'type', 'status', 'authorizes_anyone'],
             array_keys($response->json('data_sources.0'))
         );
         $response->assertJsonMissing(['api_key' => 'must-not-appear']);
+    }
+
+    public function test_platform_listing_flags_a_source_that_authorizes_nobody(): void
+    {
+        // A source naming neither a role nor a department reaches only its owner
+        // and administrators, so granting it to a user has no effect. The picker
+        // needs to say so rather than leave the administrator to find out from a
+        // user report - but without exposing the lists themselves.
+        $admin = $this->administrator(['users.view', 'users.manage']);
+        $this->dataSource('Inert ERP', ['api_key' => 'x']);
+        $this->dataSource('Departmental ERP', ['allowed_departments' => ['Finance']]);
+        $this->dataSource('Role ERP', ['allowed_roles' => ['manager']]);
+
+        $sources = collect(
+            $this->actingAs($admin)->getJson('/api/admin/users')->assertOk()->json('data_sources')
+        )->keyBy('name');
+
+        $this->assertFalse($sources['Inert ERP']['authorizes_anyone']);
+        $this->assertTrue($sources['Departmental ERP']['authorizes_anyone']);
+        $this->assertTrue($sources['Role ERP']['authorizes_anyone']);
     }
 
     public function test_author_can_publish_a_report_into_a_permitted_secondary_department(): void

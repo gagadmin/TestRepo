@@ -369,6 +369,22 @@ const selectedReportSource = computed(() => reports.value.sources.find(
 const selectedDashboardSearchConsoleSource = computed(() => dashboardSearchConsoleSources.value.find(
     (source) => source.id === dashboardSearchConsoleFilters.value.data_source_id,
 ));
+/*
+ * Platforms selected for this user that authorize nobody, so the selection is
+ * inert. `authorizes_anyone` is false when the data source names neither a role
+ * nor a department: the per-user list narrows the audience a source defines
+ * rather than granting access, so such a selection silently does nothing.
+ */
+const inertSelectedPlatforms = computed(() => {
+    if (!userAccessForm.value.restrict_data_sources) {
+        return [];
+    }
+
+    return (adminUsers.value.data_sources ?? []).filter((source) => (
+        source.authorizes_anyone === false
+        && (userAccessForm.value.allowed_data_source_ids ?? []).includes(source.id)
+    ));
+});
 const activeDashboardSupportsSearchConsole = computed(() => (
     activeDashboard.value?.reports?.some((report) => report.type === 'website_analytics') ?? false
 ));
@@ -3759,6 +3775,19 @@ onBeforeUnmount(() => {
                             Selecting none permits no platform. Administrators and the owner of
                             a data source are unaffected by this restriction.
                         </small>
+                        <Message v-if="inertSelectedPlatforms.length" severity="warn" :closable="false">
+                            <strong>
+                                {{ inertSelectedPlatforms.length === 1 ? 'This platform authorizes' : 'These platforms authorize' }}
+                                no role or department, so selecting
+                                {{ inertSelectedPlatforms.length === 1 ? 'it' : 'them' }} here has no effect:
+                            </strong>
+                            {{ inertSelectedPlatforms.map((source) => source.name).join(', ') }}.
+                            Granting a platform narrows an audience the platform already defines - it
+                            does not create one. Set Authorized roles or Authorized departments on
+                            {{ inertSelectedPlatforms.length === 1 ? 'it' : 'each' }} under
+                            Administration &rarr; Data sources, otherwise only its owner and
+                            administrators can see it.
+                        </Message>
                     </div>
 
                     <label class="schedule-active-control">

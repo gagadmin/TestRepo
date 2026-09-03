@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\Dashboard;
 use App\Models\DataSource;
 use App\Models\Permission;
+use App\Models\Report;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -35,6 +36,78 @@ class AccessProfileTest extends TestCase
 
         $slugs = collect($response->json('data'))->pluck('slug')->sort()->values()->all();
         $this->assertSame(['finance', 'procurement'], $slugs);
+    }
+
+    public function test_role_grant_does_not_widen_a_department_scoped_dashboard(): void
+    {
+        // Regression: every seeded dashboard carried an `executive` role grant,
+        // and because the visibility check ORs the role list with the access
+        // profile, an executive restricted to one department still saw them all.
+        $user = $this->userWithPermissions(['dashboards.view']);
+        $user->roles()->attach($this->role('executive', ['dashboards.view']));
+        $user->update(['allowed_departments' => ['Marketing']]);
+
+        $this->dashboard('Marketing', 'marketing');
+        $this->dashboard('Finance', 'finance', ['administrator']);
+        $this->dashboard('Procurement', 'procurement', ['administrator']);
+
+        $response = $this->actingAs($user->fresh())->getJson('/api/dashboards')->assertOk();
+
+        $slugs = collect($response->json('data'))->pluck('slug')->sort()->values()->all();
+        $this->assertSame(['marketing'], $slugs);
+    }
+
+    public function test_role_grant_does_not_widen_a_department_scoped_report(): void
+    {
+        // Reports carry the same alternative role grant as dashboards, under
+        // `definition->allowed_roles`, and were seeded with `executive` too.
+        $user = $this->userWithPermissions(['reports.view']);
+        $user->roles()->attach($this->role('executive', ['reports.view']));
+        $user->update(['allowed_departments' => ['Marketing']]);
+
+        $this->departmentReport('Marketing', 'Marketing Spend');
+        $this->departmentReport('Finance', 'Financial Overview', ['administrator']);
+        $this->departmentReport('Procurement', 'Procurement Spend', ['administrator']);
+
+        $response = $this->actingAs($user->fresh())->getJson('/api/reports')->assertOk();
+
+        $names = collect($response->json('data'))->pluck('name')->sort()->values()->all();
+        $this->assertSame(['Marketing Spend'], $names);
+    }
+
+    public function test_intentional_role_grant_still_bypasses_the_profile(): void
+    {
+        // The role branch is not being removed: a cross-cutting role must still
+        // reach its dashboard without gaining that whole department.
+        // The `security_officer` role and the Security dashboard, with its
+        // deliberate role grant, are both provisioned by migration.
+        $user = $this->userWithPermissions(['dashboards.view']);
+        $user->roles()->attach(Role::where('name', 'security_officer')->value('id'));
+        $user->update(['allowed_departments' => ['Marketing']]);
+
+        $response = $this->actingAs($user->fresh())->getJson('/api/dashboards')->assertOk();
+
+        $this->assertContains('security', collect($response->json('data'))->pluck('slug')->all());
+    }
+
+    public function test_no_seeded_department_scoped_record_grants_the_executive_role(): void
+    {
+        // The defect was in the seed data rather than in the visibility scope:
+        // every department-scoped dashboard and report was seeded granting
+        // `executive`, which the scope honours ahead of the access profile.
+        // This asserts the invariant directly, so re-adding the grant fails.
+        $this->seed(\Database\Seeders\DatabaseSeeder::class);
+
+        $granting = collect()
+            ->concat(Dashboard::query()->where('visibility', 'department')->get()
+                ->map(fn (Dashboard $d) => ['record' => 'dashboard:'.$d->slug, 'roles' => $d->layout['allowed_roles'] ?? []]))
+            ->concat(Report::query()->where('visibility', 'department')->get()
+                ->map(fn (Report $r) => ['record' => 'report:'.$r->name, 'roles' => $r->definition['allowed_roles'] ?? []]))
+            ->filter(fn (array $row) => in_array('executive', $row['roles'], true))
+            ->pluck('record')
+            ->all();
+
+        $this->assertSame([], $granting);
     }
 
     public function test_dashboard_outside_the_profile_is_not_reachable_by_slug(): void
@@ -298,14 +371,40 @@ class AccessProfileTest extends TestCase
         ];
     }
 
-    private function dashboard(string $department, string $slug): Dashboard
+    /**
+     * @param  list<string>|null  $allowedRoles  role grants that bypass the access
+     *                                           profile, or null for none
+     */
+    private function dashboard(string $department, string $slug, ?array $allowedRoles = null): Dashboard
     {
         return Dashboard::create([
             'name' => $department.' Dashboard',
             'slug' => $slug,
             'department' => $department,
             'visibility' => 'department',
+            'layout' => $allowedRoles === null
+                ? null
+                : ['columns' => 12, 'allowed_roles' => $allowedRoles],
             'is_active' => true,
+        ]);
+    }
+
+    /**
+     * @param  list<string>|null  $allowedRoles  role grants that bypass the access
+     *                                           profile, or null for none
+     */
+    private function departmentReport(string $department, string $name, ?array $allowedRoles = null): Report
+    {
+        return Report::create([
+            'user_id' => User::factory()->create()->id,
+            'name' => $name,
+            'type' => 'procurement_spend',
+            'visibility' => 'department',
+            'definition' => array_filter([
+                'department' => $department,
+                'allowed_departments' => [$department],
+                'allowed_roles' => $allowedRoles,
+            ], fn (mixed $value) => $value !== null),
         ]);
     }
 

@@ -9,6 +9,7 @@
 | Risk Rating | High |
 | Emergency Change | No |
 | Implementation Date | 3 September 2026 |
+| Amended | 3 September 2026 - added SEC-10 to SEC-12 and RG-10 to RG-11 after a role grant was found to override the access profile. See the amendment in the Change Request. |
 
 ---
 
@@ -21,7 +22,8 @@ Confirm that:
 3. An administrator can configure, per user, the departments and the connected platforms (data sources) that user may view.
 4. Dashboards, reports, and platform selectors present only the departments and platforms in the user access profile.
 5. Every access-profile change is recorded in the audit trail with actor, subject, and before/after values.
-6. Existing users retain their current effective visibility after migration (behaviour-preserving release).
+6. Existing users retain their current effective visibility after migration (behaviour-preserving release), with the single deliberate exception in RG-10: holders of the `executive` role lose departmental content outside their configured departments, because that visibility was a defect.
+7. A role grant never substitutes for the access profile on a department-scoped dashboard or report, while the intentional cross-cutting grant used by the Security dashboard keeps working.
 
 ---
 
@@ -86,6 +88,9 @@ Confirm that:
 | SEC-07 | Privilege boundary | Verify only `users.manage` holders can read or write another user access profile | Others are refused |
 | SEC-08 | Interface is not the control | With the navigation hidden, forge the request directly | The server still refuses; hiding adds no trust in the browser |
 | SEC-09 | No widening | Confirm a profile cannot grant a department or platform the user role permission does not already allow | Role permission continues to gate functional access |
+| SEC-10 | Role grant does not override the profile | Sign in as a non-administrator holding the `executive` role whose profile lists Marketing only, and list dashboards and reports | Only Marketing departmental content plus the enterprise Executive dashboard and Executive KPI report; Finance, Sales, Operations, Procurement, Asset Management and IT service management are absent from the response body |
+| SEC-11 | Intentional role grant preserved | Sign in as a `security_officer` whose profile does not include Information Technology | The Security dashboard remains reachable: narrowing the executive grant must not disable the cross-cutting grant mechanism |
+| SEC-12 | No department-scoped record grants `executive` | Provision a fresh environment and inspect every dashboard and report with department scope | No `allowed_roles` list on a department-scoped record contains `executive`; enterprise records are exempt |
 
 ### Regression Tests
 
@@ -99,13 +104,15 @@ Confirm that:
 | RG-06 | Audit trail filtering and pagination | Unchanged, plus the new event type |
 | RG-07 | Existing automated suite | Passes in full |
 | RG-08 | Production frontend build | Succeeds |
-| RG-09 | Migration | Additive only; existing effective visibility preserved for every seeded and existing account |
+| RG-09 | Migration | Additive only; existing effective visibility preserved for every seeded and existing account, with the single deliberate exception in RG-10 |
+| RG-10 | Executive visibility reduction | Expected change, not a regression: an account holding the `executive` role no longer sees departmental dashboards or reports outside its configured departments. Confirm each such account has had its departments configured and confirmed with the business before release |
+| RG-11 | Role-grant migration reversibility | Roll the role-grant migration back and forward again | The `allowed_roles` lists return to their prior contents and then to the corrected contents; no other field is altered |
 
 ### User Acceptance Tests
 
 | ID | Persona | Acceptance |
 | --- | --- | --- |
-| UAT-01 | Executive | Sees enterprise KPI and financial views; sees no administration entries |
+| UAT-01 | Executive | Sees the enterprise KPI view; sees departmental views such as Finance only where those departments are in their configured profile; sees no administration entries |
 | UAT-02 | Department manager | Sees only their own department dashboards and reports |
 | UAT-03 | Analyst | Sees the reporting and AI capabilities their role permits, nothing more |
 | UAT-04 | Multi-department user | Sees exactly the combination of departments configured, without a broader role |
@@ -187,3 +194,5 @@ Name: ____________________  Signature: ____________________  Date: __________
 | Automated coverage | `tests/Feature/AccessProfileTest.php`, `tests/Feature/AuthorizationTest.php`, `tests/Feature/DashboardReportingTest.php`, `tests/Feature/UserProvisioningTest.php` |
 | Frontend coverage | `resources/js/tests/`, `resources/js/router/routes.spec.js` |
 | External providers | Faked in all automated tests, per `ai/coding-standards.md` |
+| SEC-10 / SEC-11 / SEC-12 coverage | `tests/Feature/AccessProfileTest.php` - `test_role_grant_does_not_widen_a_department_scoped_dashboard`, `test_role_grant_does_not_widen_a_department_scoped_report`, `test_intentional_role_grant_still_bypasses_the_profile`, `test_no_seeded_department_scoped_record_grants_the_executive_role` |
+| RG-11 coverage | `database/migrations/2026_09_03_000200_restrict_department_dashboard_role_grants.php` (reversible; exercised by the suite on every run) |

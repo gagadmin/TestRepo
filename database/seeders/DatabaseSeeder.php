@@ -224,7 +224,15 @@ class DatabaseSeeder extends Seeder
                         'filters' => ['date_from', 'date_to', 'department', 'region', 'status'],
                         'department' => $definition['departments'][0] ?? null,
                         'allowed_departments' => $definition['departments'],
-                        'allowed_roles' => ['administrator', ...$definition['roles']],
+                        // As with dashboards, a role named here is granted the
+                        // report whatever the user access profile says, so
+                        // `executive` is kept only on the enterprise report.
+                        'allowed_roles' => $type === 'executive_kpi'
+                            ? ['administrator', ...$definition['roles']]
+                            : ['administrator', ...array_values(array_filter(
+                                $definition['roles'],
+                                fn (string $role) => $role !== 'executive'
+                            ))],
                     ],
                 ]
             );
@@ -271,7 +279,15 @@ class DatabaseSeeder extends Seeder
                     'visibility' => $slug === 'executive' ? 'enterprise' : 'department',
                     'layout' => [
                         'columns' => 12,
-                        'allowed_roles' => ['administrator', 'executive'],
+                        // `allowed_roles` grants a dashboard regardless of the
+                        // user access profile, so on a department-scoped
+                        // dashboard it must name only roles that are genuinely
+                        // meant to bypass departmental scoping. Granting
+                        // `executive` on every dashboard made the profile
+                        // unenforceable for anyone holding that role.
+                        'allowed_roles' => $slug === 'executive'
+                            ? ['administrator', 'executive']
+                            : ['administrator'],
                     ],
                     'is_active' => true,
                 ]

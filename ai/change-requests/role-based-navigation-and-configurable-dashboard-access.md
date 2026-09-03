@@ -124,11 +124,65 @@ This change alters how authorisation decisions are made and how business informa
 - **Privilege configuration abuse.** The ability to configure the data visibility of another user is itself a sensitive privilege and must be restricted, audited, and protected against self-elevation.
 - **Insufficient audit evidence.** Access-profile changes that are not recorded would leave the organisation unable to evidence who granted whom access to which department information.
 
+### Amendment - Role Grants Overriding the Access Profile
+
+Testing after the initial approval of this Change Request found that the access
+profile could be bypassed entirely, and correcting it changes the effect of the
+release. The Change Advisory Board should read this section as a material
+amendment rather than an implementation detail.
+
+**What was found.** Each dashboard and each report may name a list of roles that
+are granted it outright, independently of any department. This exists for a
+legitimate reason: a cross-cutting role such as the security officer must be able
+to reach the Security dashboard without being given the whole Information
+Technology department. However, every dashboard and every departmental report
+was provisioned granting the Executive role in this way. Because the grant is an
+alternative to the departmental check rather than an addition to it, any account
+holding the Executive role saw every dashboard and every departmental report, and
+the departments configured for that user were never consulted. This was confirmed
+on a live test account restricted to Marketing alone, which was nonetheless shown
+Finance, Sales, Operations, Procurement, Asset Management and IT service
+management.
+
+**Business consequence of the finding.** For the affected population the control
+described in this Change Request was not in force. Departmental information was
+visible to holders of one specific role irrespective of their configured
+entitlement. This is a data-exposure finding, not a cosmetic one, and it existed
+in the state that was previously assessed as behaviour-preserving.
+
+**What is being changed.** The blanket Executive grant is removed from
+department-scoped dashboards and reports, in both newly provisioned environments
+and existing ones. Executives receive departmental content through their
+configured departments, exactly as every other role does. Three grants are
+deliberately kept: the enterprise-wide Executive dashboard and Executive KPI
+report, which are company-level by design; the administrator bypass, which
+already exists everywhere; and the security officer grant on the Security
+dashboard, which is the intended use of the mechanism.
+
+**Consequence for the behaviour-preservation commitment.** This Change Request
+previously stated that no user gains or loses visibility on release. That
+statement no longer holds without qualification. **Accounts holding the Executive
+role will lose visibility of departmental dashboards and reports outside their
+configured departments.** This is the correction of the defect and is the
+intended outcome, but it is a visible reduction in access for a senior user group
+and should be communicated to those users before release rather than discovered
+by them afterwards.
+
+**Connected platforms are unaffected.** The equivalent check for data sources
+refuses a platform outside a user's explicit platform allow list before any role
+is considered, so the configured profile already takes precedence there.
+
+**Action required of the business.** Confirm, for each account holding the
+Executive role, the departments that account should be able to view, and record
+them in the access profile before release. An executive whose profile is left
+empty falls back to the single department label on their account and may see
+noticeably less than they do today.
+
 ### Risk Mitigation Plan
 
 1. Keep all enforcement on the server. Interface changes hide only what the server already refuses; every affected view and data request continues to be checked independently.
 2. Treat the change as additive. Existing role-based permission checks remain in force; the new access profile narrows visibility further and never widens it.
-3. Perform a documented migration that preserves the current effective visibility of each user as the starting point of their new profile, so no user gains or loses access silently on release.
+3. Perform a documented migration that preserves the current effective visibility of each user as the starting point of their new profile, so no user gains or loses access silently on release. This holds with one deliberate exception, set out in the amendment above: holders of the Executive role lose departmental content outside their configured departments, because that visibility was the defect being corrected. Those users are to be identified and their profiles confirmed with the business before release.
 4. Restrict access-profile configuration to administrators, retain protections against self-modification and removal of the last administrator, and record every change in the audit trail with the actor, the subject, and the before-and-after values.
 5. Validate scheduled report recipients against the new rules and report any recipient whose entitlement no longer matches their subscription for business-owner decision.
 6. Provide a clear, accessible message when a user reaches a view they are not entitled to, including how to request access, so hidden capability does not become inaccessible capability.
@@ -250,11 +304,17 @@ Name: ____________________  Signature: ____________________  Date: __________
 
 **Generated Date:** 3 September 2026
 
+**Last Amended:** 3 September 2026 - role grants overriding the access profile
+(see the amendment in the Risk Assessment section). Requires re-approval: the
+release is no longer behaviour-preserving for holders of the Executive role.
+
 **Risk Rating:** High
 
 **Emergency Change:** No
 
-**Analysis Confidence:** 88%
+**Analysis Confidence:** 88% at issue. The amendment is stated at higher
+confidence: the bypass was reproduced on a live account and is covered by
+automated tests.
 
 ---
 

@@ -18,6 +18,7 @@ Before a material change, read the smallest relevant set:
 - `ai/issues/` — defects, risks, debt, fixes, troubleshooting
 - `ai/decisions/` — durable architectural decisions
 - `ai/change-requests/` — approved and pending change requests for stakeholder review
+- `ai/code-reviews/` — post-implementation code reviews traceable to a change request
 - `ai/test-cases/` — test case documents traceable to a change request
 
 Treat routes, migrations, tests, and executable code as more authoritative than prose. Reconcile documentation when they differ.
@@ -72,6 +73,8 @@ php artisan schedule:list
 
 Report exactly what passed, failed, or could not be run. Do not claim production, load, security, recovery, vendor, email, Teams, or AI acceptance without evidence.
 
+Where a Change Request was required, close the Tune stage with the post-implementation artifacts: generate the Code Review first, then the Test Cases. See "Change management".
+
 ## Change management
 
 Use the `change-request-generator` skill (`.claude/skills/change-request-generator/SKILL.md`) for any change that stakeholders must approve: enhancements, bug fixes, security updates, integrations, and infrastructure changes.
@@ -79,8 +82,15 @@ Use the `change-request-generator` skill (`.claude/skills/change-request-generat
 - Analyze the repository and the `ai/` documentation first, then write the Change Request in business language for management and CAB readers.
 - Store the Change Request at `ai/change-requests/<kebab-case-subject>.md` with risk rating, emergency-change assessment, impact, rollout plan, backout plan, approvals, and confidence scores.
 - Treat changes to authentication, authorization, permissions, encryption, integrations, source-system access, or AI tool scope as High risk or above until analysis proves otherwise.
-- After approval and instruction to proceed, generate `ai/test-cases/<same-filename>.md` and keep the filenames identical for traceability.
 - Trivial, non-functional work (typo fixes, comment or formatting changes) does not require a Change Request.
+
+The governance sequence is Change Request → Development → Code Review → Test Cases → QA → Deployment. All three documents share one kebab-case filename for traceability:
+
+1. **Change Request** — `ai/change-requests/<name>.md`. Written and approved before any Forge-stage code change.
+2. **Code Review** — `ai/code-reviews/<name>.md`. Generated only after the Change Request is approved, development is complete, and implementation evidence exists (a merged pull request, a branch merged to staging/uat/main, or reviewable repository changes) — or when the user explicitly requests the review. Never generated alongside the Change Request. Carries a scorecard, a final implementation status (Excellent / Good / Satisfactory / Poor / Critical), and a deployment recommendation.
+3. **Test Cases** — `ai/test-cases/<name>.md`. Generated only after the Code Review is complete and its final status is not Critical.
+
+A Critical code-review status means deployment is rejected; rework and re-review before test cases or release.
 
 ## Repository structure
 
@@ -101,6 +111,7 @@ Use the `change-request-generator` skill (`.claude/skills/change-request-generat
 | `tests` | PHPUnit unit and feature coverage |
 | `.claude/skills` | Repository skills, including `change-request-generator` |
 | `ai/change-requests` | Management-facing change requests |
+| `ai/code-reviews` | Post-implementation code reviews traceable to change requests |
 | `ai/test-cases` | Test case documents traceable to change requests |
 
 ## Security invariants
@@ -126,4 +137,4 @@ Use the `change-request-generator` skill (`.claude/skills/change-request-generat
 
 ## Definition of done
 
-A change is complete when behavior, security, tests, build/runtime registration, and affected documentation agree; known residual risk is recorded; and validation results are reported honestly. Where a Change Request was required, it is approved and its matching test case document exists.
+A change is complete when behavior, security, tests, build/runtime registration, and affected documentation agree; known residual risk is recorded; and validation results are reported honestly. Where a Change Request was required, it is approved and its matching code review and test case documents exist, with the code review's final status above Critical.

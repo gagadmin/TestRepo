@@ -11,6 +11,28 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Report extends Model
 {
+    /**
+     * Roles that may be named in an `allowed_roles` grant.
+     *
+     * @var list<string>
+     */
+    public const GRANTABLE_ROLES = ['administrator', 'executive', 'manager', 'analyst'];
+
+    /**
+     * Roles whose grant may cross a department boundary.
+     *
+     * `scopeVisibleTo` treats `allowed_roles` as an alternative to the
+     * departmental check. That is deliberate, so a genuinely cross-cutting role
+     * can be given a departmental record without adding that department to
+     * every holder's access profile - it is the same list the seeded Security
+     * dashboard uses. The broad business roles are excluded: granting one of
+     * those on a department-scoped record would publish departmental data to
+     * every holder of the role and bypass the user access profile entirely.
+     *
+     * @var list<string>
+     */
+    public const CROSS_CUTTING_ROLES = ['administrator', 'security_officer'];
+
     protected $fillable = [
         'user_id', 'name', 'type', 'description', 'definition', 'visibility',
         'last_generated_at',

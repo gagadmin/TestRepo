@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\DataSource;
+use App\Models\Report;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -43,11 +44,52 @@ class ReportRequest extends FormRequest
                 Rule::in(['query', 'page', 'country', 'device', 'date']),
             ],
             'definition.allowed_roles' => ['nullable', 'array', 'max:5'],
-            'definition.allowed_roles.*' => ['string', Rule::in(['administrator', 'executive', 'manager', 'analyst'])],
+            'definition.allowed_roles.*' => ['string', Rule::in($this->grantableRoles())],
             'definition.allowed_departments' => ['nullable', 'array', 'max:30'],
             'definition.allowed_departments.*' => ['string', 'max:120'],
             'definition.columns.*.mask' => ['nullable', Rule::in(['email', 'phone', 'last4', 'redact'])],
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        if (! $this->publishesToADepartment()) {
+            return [];
+        }
+
+        return [
+            'definition.allowed_roles.*.in' => 'A department report may only grant the '
+                .implode(' or ', Report::CROSS_CUTTING_ROLES)
+                .' role. Every other role reaches the report through the departments configured on the account.',
+        ];
+    }
+
+    /**
+     * Roles this report may name in its `allowed_roles` grant.
+     *
+     * Visibility decides. A role grant is an alternative to the departmental
+     * check, so leaving the list unrestricted on a department-scoped report
+     * would let any author publish departmental data to a whole role and
+     * recreate, one record at a time, the access-profile bypass that
+     * `2026_09_03_000200_restrict_department_dashboard_role_grants` closed for
+     * the seeded records. Enterprise and private reports are unaffected: they
+     * carry no departmental promise to break.
+     *
+     * @return list<string>
+     */
+    private function grantableRoles(): array
+    {
+        return $this->publishesToADepartment()
+            ? Report::CROSS_CUTTING_ROLES
+            : Report::GRANTABLE_ROLES;
+    }
+
+    private function publishesToADepartment(): bool
+    {
+        return $this->input('visibility') === 'department';
     }
 
     public function after(): array

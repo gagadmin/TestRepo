@@ -175,8 +175,18 @@ is considered, so the configured profile already takes precedence there.
 **Action required of the business.** Confirm, for each account holding the
 Executive role, the departments that account should be able to view, and record
 them in the access profile before release. An executive whose profile is left
-empty falls back to the single department label on their account and may see
-noticeably less than they do today.
+unconfigured falls back to the single department label on their account and may
+see noticeably less than they do today.
+
+**Amendment (code review rework, finding S-3).** "Unconfigured" and "configured
+as empty" are two different states, and the administration screen now presents
+them as such through a "Restrict to specific departments" control that mirrors
+the equivalent platform control. Leaving the restriction off keeps the fallback
+to the department label described above. Turning it on and selecting no
+department means the account sees no departmental data at all, which is how an
+administrator withdraws departmental visibility. Before this amendment an
+emptied list was indistinguishable from an unconfigured one and silently
+restored the label department.
 
 ### Risk Mitigation Plan
 

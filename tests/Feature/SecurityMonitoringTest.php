@@ -330,6 +330,44 @@ class SecurityMonitoringTest extends TestCase
         ]);
     }
 
+    public function test_a_profile_granting_it_admits_a_user_whose_label_says_otherwise(): void
+    {
+        // The gate is the organisational half of security access, so it has to
+        // read the same access profile the dashboard list reads. Otherwise the
+        // Security dashboard is offered to this user and then refused when they
+        // open it - the visible-but-unreachable entry WEB-671 set out to remove.
+        $user = $this->userWithRole('cross_functional', ['security.view'], 'Corporate Services');
+        $user->update(['allowed_departments' => ['Information Technology']]);
+
+        $this->actingAs($user->fresh())->getJson('/api/security')->assertOk();
+    }
+
+    public function test_a_profile_excluding_it_refuses_a_user_whose_label_still_says_it(): void
+    {
+        // The other direction, and the one that matters for containment:
+        // removing Information Technology from a profile must actually withdraw
+        // security telemetry rather than leaving it behind on the stale label.
+        $user = $this->userWithRole('moved_on', ['security.view'], 'Information Technology');
+        $user->update(['allowed_departments' => ['Marketing']]);
+
+        $this->actingAs($user->fresh())->getJson('/api/security')->assertForbidden();
+
+        $this->assertDatabaseHas('audit_logs', [
+            'user_id' => $user->id,
+            'event' => 'security.access_denied',
+        ]);
+    }
+
+    public function test_a_privileged_role_still_bypasses_the_department_condition(): void
+    {
+        // The role bypass is unchanged: a security officer never depends on a
+        // department, configured or otherwise.
+        $user = $this->userWithRole('security_officer', ['security.view'], 'Corporate Services');
+        $user->update(['allowed_departments' => ['Marketing']]);
+
+        $this->actingAs($user->fresh())->getJson('/api/security')->assertOk();
+    }
+
     private function userWithRole(string $roleName, array $permissions, ?string $department): User
     {
         $role = Role::firstOrCreate(

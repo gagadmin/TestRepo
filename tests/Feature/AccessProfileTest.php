@@ -9,6 +9,7 @@ use App\Models\Permission;
 use App\Models\Report;
 use App\Models\Role;
 use App\Models\User;
+use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -96,7 +97,7 @@ class AccessProfileTest extends TestCase
         // every department-scoped dashboard and report was seeded granting
         // `executive`, which the scope honours ahead of the access profile.
         // This asserts the invariant directly, so re-adding the grant fails.
-        $this->seed(\Database\Seeders\DatabaseSeeder::class);
+        $this->seed(DatabaseSeeder::class);
 
         $granting = collect()
             ->concat(Dashboard::query()->where('visibility', 'department')->get()
@@ -373,6 +374,188 @@ class AccessProfileTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.definition.department', 'Finance')
             ->assertJsonPath('data.definition.allowed_departments', ['Finance']);
+    }
+
+    public function test_the_administration_api_round_trips_an_unset_and_an_emptied_department_list(): void
+    {
+        // The screen sends null for "not restricted" and [] for "restricted to
+        // nothing", and the two now mean different things to the visibility
+        // gates. If the API collapsed them, an administrator opening a user and
+        // saving without touching departments would silently revoke that user's
+        // departmental visibility.
+        $admin = $this->administrator(['users.view', 'users.manage']);
+        $subject = User::factory()->create(['department' => 'Finance', 'is_active' => true]);
+        $subject->roles()->attach($this->role('analyst-'.str()->random(4), []));
+
+        $payload = [
+            'name' => $subject->name,
+            'email' => $subject->email,
+            'department' => 'Finance',
+            'title' => 'Analyst',
+            'is_active' => true,
+            'roles' => $subject->roles()->pluck('name')->all(),
+            'allowed_data_source_ids' => null,
+        ];
+
+        $this->actingAs($admin)
+            ->putJson("/api/admin/users/{$subject->id}", [...$payload, 'allowed_departments' => null])
+            ->assertOk()
+            ->assertJsonPath('data.allowed_departments', null)
+            ->assertJsonPath('data.effective_departments', ['Finance']);
+
+        $this->assertNull($subject->fresh()->allowed_departments);
+
+        $this->actingAs($admin)
+            ->putJson("/api/admin/users/{$subject->id}", [...$payload, 'allowed_departments' => []])
+            ->assertOk()
+            ->assertJsonPath('data.allowed_departments', [])
+            ->assertJsonPath('data.effective_departments', []);
+
+        $this->assertSame([], $subject->fresh()->allowed_departments);
+    }
+
+    public function test_an_author_with_no_departmental_visibility_cannot_publish_a_department_report(): void
+    {
+        // The publish department falls back to the access profile, not the raw
+        // label. An author whose departments were deliberately cleared can see
+        // no departmental data, so they must not be able to write into the
+        // department their stale label still names.
+        $author = $this->userWithPermissions(['reports.view', 'reports.create']);
+        $author->update(['allowed_departments' => []]);
+
+        $this->actingAs($author->fresh())
+            ->postJson('/api/reports', [
+                ...$this->reportPayload(),
+                'visibility' => 'department',
+                'definition' => [
+                    ...$this->reportPayload()['definition'],
+                    'department' => 'Finance',
+                ],
+            ])
+            ->assertStatus(422);
+
+        $this->assertDatabaseCount('reports', 0);
+    }
+
+    public function test_publishing_a_department_report_rejects_a_broad_role_grant(): void
+    {
+        // The read-side rule and the seeded data were both corrected, but the
+        // publication path still accepted `executive` on a department-scoped
+        // report - recreating the bypass one record at a time. An author with
+        // nothing more than `reports.create` could publish departmental data to
+        // every Executive account, whatever their configured departments.
+        $author = $this->userWithPermissions(['reports.view', 'reports.create']);
+
+        $this->actingAs($author)
+            ->postJson('/api/reports', [
+                ...$this->reportPayload(),
+                'visibility' => 'department',
+                'definition' => [
+                    ...$this->reportPayload()['definition'],
+                    'department' => 'Finance',
+                    'allowed_roles' => ['executive'],
+                ],
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('definition.allowed_roles.0');
+
+        $this->assertDatabaseCount('reports', 0);
+    }
+
+    public function test_an_outside_executive_cannot_see_a_report_that_attempted_the_grant(): void
+    {
+        // The end the control exists for: the grant is refused, so an Executive
+        // whose profile excludes Finance never gains the report.
+        $author = $this->userWithPermissions(['reports.view', 'reports.create']);
+        $executive = $this->userWithPermissions(['reports.view']);
+        $executive->roles()->attach($this->role('executive', ['reports.view']));
+        $executive->update(['allowed_departments' => ['Marketing']]);
+
+        $this->actingAs($author)
+            ->postJson('/api/reports', [
+                ...$this->reportPayload(),
+                'visibility' => 'department',
+                'definition' => [
+                    ...$this->reportPayload()['definition'],
+                    'department' => 'Finance',
+                    'allowed_roles' => ['executive'],
+                ],
+            ])
+            ->assertStatus(422);
+
+        $response = $this->actingAs($executive->fresh())->getJson('/api/reports')->assertOk();
+
+        $this->assertSame([], $response->json('data'));
+    }
+
+    public function test_a_department_report_may_still_grant_a_cross_cutting_role(): void
+    {
+        // The role branch is not being closed, only narrowed: a genuinely
+        // cross-cutting role must still be grantable, the same way the seeded
+        // Security dashboard grants one.
+        $author = $this->userWithPermissions(['reports.view', 'reports.create']);
+
+        $this->actingAs($author)
+            ->postJson('/api/reports', [
+                ...$this->reportPayload(),
+                'visibility' => 'department',
+                'definition' => [
+                    ...$this->reportPayload()['definition'],
+                    'department' => 'Finance',
+                    'allowed_roles' => ['security_officer'],
+                ],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.definition.allowed_roles', ['security_officer']);
+    }
+
+    public function test_an_enterprise_report_keeps_its_broad_role_grants(): void
+    {
+        // Enterprise reports are role-gated by design and carry no departmental
+        // promise to break, so their vocabulary is unchanged. Publishing one
+        // needs `reports.publish`, which is the separate control on that path.
+        $author = $this->userWithPermissions(['reports.view', 'reports.create', 'reports.publish']);
+
+        $this->actingAs($author)
+            ->postJson('/api/reports', [
+                ...$this->reportPayload(),
+                'visibility' => 'enterprise',
+                'definition' => [
+                    ...$this->reportPayload()['definition'],
+                    'allowed_roles' => ['executive'],
+                ],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.definition.allowed_roles', ['executive', 'administrator']);
+    }
+
+    public function test_an_emptied_department_list_removes_departmental_visibility(): void
+    {
+        // An explicitly emptied list previously fell back to the `department`
+        // label, so an administrator clearing every department silently handed
+        // the user their label department back and had no way to express "no
+        // departmental visibility" - while the same screen's platform control
+        // honoured exactly that.
+        $user = $this->userWithPermissions(['dashboards.view']);
+        $user->update(['allowed_departments' => []]);
+        $this->dashboard('Finance', 'finance');
+
+        $response = $this->actingAs($user->fresh())->getJson('/api/dashboards')->assertOk();
+
+        $this->assertSame([], $response->json('data'));
+    }
+
+    public function test_an_unset_department_list_still_falls_back_to_the_label(): void
+    {
+        // The other half of the distinction, and the behaviour every account
+        // predating the profile relies on: null still means the label.
+        $user = $this->userWithPermissions(['dashboards.view']);
+        $user->update(['allowed_departments' => null]);
+        $this->dashboard('Finance', 'finance');
+
+        $response = $this->actingAs($user->fresh())->getJson('/api/dashboards')->assertOk();
+
+        $this->assertSame(['finance'], collect($response->json('data'))->pluck('slug')->all());
     }
 
     private function reportPayload(): array

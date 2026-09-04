@@ -103,22 +103,28 @@ class User extends Authenticatable
      * Departments whose department-scoped dashboards and reports this user may
      * see.
      *
-     * An unset profile falls back to the single `department` label so accounts
-     * that predate the access profile keep exactly the visibility they had.
+     * Null and [] are deliberately different, and mean here exactly what they
+     * mean for platforms. Null - an unset profile - falls back to the single
+     * `department` label, so accounts that predate the access profile keep
+     * exactly the visibility they had. An explicitly emptied list means "no
+     * departmental visibility" and is honoured as written: an administrator who
+     * clears every department removes that access instead of silently having
+     * the label handed back.
      *
      * @return list<string>
      */
     public function accessibleDepartments(): array
     {
-        $configured = collect($this->allowed_departments ?? [])
-            ->filter(fn (mixed $department) => is_string($department) && trim($department) !== '')
-            ->map(fn (string $department) => trim($department));
-
-        if ($configured->isEmpty() && filled($this->department)) {
-            $configured = collect([$this->department]);
+        if ($this->allowed_departments === null) {
+            return filled($this->department) ? [trim($this->department)] : [];
         }
 
-        return $configured->unique()->values()->all();
+        return collect($this->allowed_departments)
+            ->filter(fn (mixed $department) => is_string($department) && trim($department) !== '')
+            ->map(fn (string $department) => trim($department))
+            ->unique()
+            ->values()
+            ->all();
     }
 
     public function canViewDepartment(?string $department): bool

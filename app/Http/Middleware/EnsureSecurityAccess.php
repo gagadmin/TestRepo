@@ -15,6 +15,15 @@ use Symfony\Component\HttpFoundation\Response;
  * belong to the IT department or hold the administrator / security_officer
  * role. Both conditions must hold, so granting the permission alone to an
  * unrelated role does not expose security telemetry.
+ *
+ * The departmental half reads the user access profile, not the single
+ * `department` label, so this gate narrows and widens with the departments an
+ * administrator configures - the same rule dashboards and reports follow. An
+ * account given Information Technology through its profile can therefore open
+ * the Security dashboard it is offered, and removing that department from a
+ * profile actually withdraws access rather than leaving it behind on the label.
+ * The privileged-role bypass is unchanged: those roles never depend on a
+ * department.
  */
 class EnsureSecurityAccess
 {
@@ -36,11 +45,12 @@ class EnsureSecurityAccess
             ->whereIn('name', self::PRIVILEGED_ROLES)
             ->exists();
 
-        $inAllowedDepartment = in_array(
-            strtolower(trim((string) $user->department)),
-            self::ALLOWED_DEPARTMENTS,
-            true,
-        );
+        $inAllowedDepartment = collect($user->accessibleDepartments())
+            ->contains(fn (string $department) => in_array(
+                strtolower(trim($department)),
+                self::ALLOWED_DEPARTMENTS,
+                true,
+            ));
 
         if ($hasPrivilegedRole || $inAllowedDepartment) {
             return $next($request);
@@ -58,6 +68,7 @@ class EnsureSecurityAccess
             'metadata' => [
                 'path' => $request->path(),
                 'department' => $user->department,
+                'permitted_departments' => $user->accessibleDepartments(),
                 'reason' => 'not_it_department_or_security_role',
             ],
         ]);

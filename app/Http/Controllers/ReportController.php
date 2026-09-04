@@ -248,14 +248,24 @@ class ReportController extends Controller
             $requested = trim((string) ($definition['department'] ?? ''));
             $department = $requested !== '' && $author->canViewDepartment($requested)
                 ? $requested
-                : ($author->department ?: ($author->accessibleDepartments()[0] ?? null));
+                : ($author->accessibleDepartments()[0] ?? null);
 
             abort_unless($department, 422, 'A department is required for departmental visibility.');
             $definition['department'] = $department;
             $definition['allowed_departments'] = [$department];
+            /*
+             * A role grant is an alternative to the departmental check, so only
+             * a genuinely cross-cutting role may carry one here. Admitting a
+             * broad business role - `executive` was admitted until WEB-671 -
+             * publishes departmental data to every holder of that role and
+             * bypasses the access profile outright. The Form Request rejects
+             * such a grant with a message the author can act on; this intersect
+             * is the server-side floor for anything that reaches the model by
+             * another path.
+             */
             $definition['allowed_roles'] = array_values(array_intersect(
                 $definition['allowed_roles'] ?? [],
-                ['administrator', 'executive']
+                Report::CROSS_CUTTING_ROLES
             ));
         }
 

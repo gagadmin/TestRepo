@@ -122,6 +122,23 @@ Materially changed, and in the intended direction. Departmental and platform vis
 
 Reduced overall. The capability map of the platform is no longer shipped to every account; the reporting cache can no longer serve one user's permitted rows to another user with a different profile; and the new administration payload deliberately withholds platform configuration in favour of a derived flag. Two residual exposures are recorded below, plus the acknowledged scheduled-delivery mismatch (KI-016).
 
+### Rework Status
+
+S-1, S-2 and S-3 were reworked after this review was issued. Each fix carries
+tests asserting both directions, and each test was confirmed to fail against the
+pre-fix code before the fix was kept:
+
+| Finding | State | Evidence |
+| --- | --- | --- |
+| S-1 | Fixed | `ReportRequest` restricts `allowed_roles` on a department-scoped report to `Report::CROSS_CUTTING_ROLES`, and `ReportController::governDefinition` intersects against the same list as the server-side floor. Four tests in `AccessProfileTest`, including an Executive outside the department seeing nothing. |
+| S-2 | Fixed | `EnsureSecurityAccess` reads `accessibleDepartments()` rather than the `department` label. Three tests in `SecurityMonitoringTest`, covering grant, revocation, and the unchanged privileged-role bypass. |
+| S-3 | Fixed | `User::accessibleDepartments()` falls back to the label only when the profile is null. The administration screen gained a "Restrict to specific departments" control mirroring the platform control, and the API round-trip of null versus `[]` is asserted. |
+| S-4 | Open, accepted | Recorded on 2026-09-04 as KI-018 (live migration with maintenance mode, backup, dependency install and asset build all commented out; unpinned SSH action; no CI gate) and KI-019 (target host confirmed as a personal or test environment, not sanctioned infrastructure). The workflow is unchanged by decision. The deployment recommendation below is unaffected: staging remains gated on correcting the workflow under its own Change Request. |
+
+This status records the rework only. It does not re-issue the review verdict:
+the review remains `CHANGES_REQUIRED` until it is regenerated, and S-4 is still
+outstanding.
+
 ### Vulnerabilities Identified
 
 **S-1 — A role grant on a newly created departmental report still bypasses the access profile.** *Severity: High.*

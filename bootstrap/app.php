@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\AddSecurityHeaders;
+use App\Http\Middleware\AssignCorrelationId;
 use App\Http\Middleware\AuditMutatingRequests;
 use App\Http\Middleware\EnsureActiveUser;
 use App\Http\Middleware\EnsurePasswordIsCurrent;
@@ -24,6 +25,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'security.access' => EnsureSecurityAccess::class,
             'mfa' => EnsureTwoFactorEnrolled::class,
             'password.current' => EnsurePasswordIsCurrent::class,
+        ]);
+
+        // Correlation runs first so every later middleware, controller, and
+        // exception log line carries the identifier.
+        $middleware->web(prepend: [
+            AssignCorrelationId::class,
         ]);
 
         $middleware->web(append: [

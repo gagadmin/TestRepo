@@ -6,6 +6,7 @@ use App\Models\Report;
 use App\Models\ReportSnapshot;
 use Dompdf\Dompdf;
 use Dompdf\Options;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -16,6 +17,56 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 class ReportExportService
 {
     public function xlsx(Report $report, ReportSnapshot $snapshot, array $rows): string
+    {
+        return $this->measured(
+            'xlsx',
+            $report,
+            $rows,
+            fn (): string => $this->buildXlsx($report, $snapshot, $rows),
+        );
+    }
+
+    public function pdf(Report $report, ReportSnapshot $snapshot, array $rows): string
+    {
+        return $this->measured(
+            'pdf',
+            $report,
+            $rows,
+            fn (): string => $this->buildPdf($report, $snapshot, $rows),
+        );
+    }
+
+    /**
+     * Time an export and report the cost.
+     *
+     * Serialising a snapshot into a spreadsheet or a PDF is the memory- and
+     * CPU-heavy half of producing a report — retrieval is already timed in
+     * `integration_runs` — and it grows with row and column count. Measuring it
+     * is what turns "the export is slow" into a size the figures can be checked
+     * against. Only shape is recorded: never a cell value, and never the
+     * document itself.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @param  callable(): string  $build
+     */
+    private function measured(string $format, Report $report, array $rows, callable $build): string
+    {
+        $startedAt = hrtime(true);
+        $output = $build();
+
+        Log::info('Report export generated.', [
+            'report_id' => $report->id,
+            'format' => $format,
+            'rows' => count($rows),
+            'columns' => count($report->definition['columns'] ?? []),
+            'duration_ms' => (int) round((hrtime(true) - $startedAt) / 1_000_000),
+            'bytes' => strlen($output),
+        ]);
+
+        return $output;
+    }
+
+    private function buildXlsx(Report $report, ReportSnapshot $snapshot, array $rows): string
     {
         $book = new Spreadsheet;
         $sheet = $book->getActiveSheet();
@@ -88,7 +139,7 @@ class ReportExportService
         return $contents;
     }
 
-    public function pdf(Report $report, ReportSnapshot $snapshot, array $rows): string
+    private function buildPdf(Report $report, ReportSnapshot $snapshot, array $rows): string
     {
         $options = new Options;
         $options->set('isRemoteEnabled', false);

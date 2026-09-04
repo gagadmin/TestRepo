@@ -1,7 +1,10 @@
 import http, { normalizeError, queryParams } from './http';
 
 /**
- * User administration and the audit trail.
+ * User administration.
+ *
+ * The audit trail lives in `auditService`: it is governance evidence with its
+ * own permission and its own screen, not a facet of user management.
  */
 export const adminService = {
     async users({ page = 1, search = '' } = {}) {
@@ -20,6 +23,16 @@ export const adminService = {
         }
     },
 
+    async createUser(payload) {
+        try {
+            const { data } = await http.post('/api/admin/users', payload);
+
+            return data;
+        } catch (error) {
+            throw normalizeError(error, 'The account could not be created.');
+        }
+    },
+
     async updateUser(userId, payload) {
         try {
             const { data } = await http.put(`/api/admin/users/${userId}`, payload);
@@ -27,22 +40,6 @@ export const adminService = {
             return data;
         } catch (error) {
             throw normalizeError(error, 'The user access settings could not be saved.');
-        }
-    },
-
-    async audit({ page = 1, ...filters } = {}) {
-        try {
-            const { data } = await http.get('/api/admin/audit', {
-                params: queryParams({ page, ...filters }),
-            });
-
-            return data;
-        } catch (error) {
-            throw normalizeError(
-                error,
-                'Audit events could not be loaded.',
-                'the audit trail',
-            );
         }
     },
 };

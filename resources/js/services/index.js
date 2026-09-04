@@ -7,6 +7,7 @@
 export { default as http, ApiError, normalizeError, queryParams, onUnauthenticated } from './http';
 export { adminService } from './adminService';
 export { aiService } from './aiService';
+export { auditService } from './auditService';
 export { analyticsService } from './analyticsService';
 export { authService } from './authService';
 export { dashboardService } from './dashboardService';

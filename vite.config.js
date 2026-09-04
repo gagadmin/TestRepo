@@ -18,6 +18,52 @@ export default defineConfig({
         setupFiles: ['resources/js/tests/setup.js'],
     },
     plugins: [
+        /*
+         * `vue3-apexcharts` ships its own pre-bundled copy of the chart engine
+         * for server-side rendering and dynamically imports it from two
+         * components: ApexChartsServer, which runs only in `onServerPrefetch`,
+         * and ApexChartsHydrate, which rehydrates server-rendered markup. This
+         * application is a client-only SPA that registers neither - it wires up
+         * the plain `apexchart` component alone - so that copy is never
+         * executed in a browser.
+         *
+         * It is still emitted, because the package sets `install` on the
+         * default export and that installer references both components, which
+         * defeats tree-shaking. The result was a ~518 kB chunk of dead weight
+         * shipped on every deploy alongside the ~805 kB chunk that is actually
+         * used - the same engine, twice.
+         *
+         * Replacing it with a stub removes the duplicate from the build. The
+         * stub throws rather than returning something plausible: if this
+         * application ever adopts server-side rendering or uses
+         * <ApexChartsHydrate>, that must fail loudly here rather than silently
+         * render nothing. Both call sites already catch and log.
+         *
+         * The vendored filename carries a content hash, so it is matched by
+         * pattern - a version bump changes the hash but not the shape.
+         */
+        {
+            name: 'drop-vendored-apexcharts-ssr-bundle',
+            apply: 'build',
+            enforce: 'pre',
+            resolveId(source) {
+                return /apexcharts\.ssr\.esm(-[A-Za-z0-9]+)?\.js$/.test(source)
+                    ? '\0apexcharts-ssr-stub'
+                    : null;
+            },
+            load(id) {
+                if (id !== '\0apexcharts-ssr-stub') {
+                    return null;
+                }
+
+                const message = 'ApexCharts server-side rendering is not available in this build. '
+                    + 'See the drop-vendored-apexcharts-ssr-bundle plugin in vite.config.js.';
+
+                return `const unavailable = () => { throw new Error(${JSON.stringify(message)}); };
+export default { renderToHTML: unavailable, hydrateAll: unavailable };
+`;
+            },
+        },
         {
             name: 'remove-stale-laravel-hot-file',
             apply: 'build',

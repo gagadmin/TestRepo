@@ -87,7 +87,7 @@ describe('route table', () => {
 
         // Update this expectation as each view is migrated — it is a deliberate
         // checklist, not an assertion about correctness.
-        expect(legacy.length).toBe(11);
+        expect(legacy.length).toBe(9);
         expect(routes.find((route) => route.name === 'security').meta.layout).toBeUndefined();
     });
 });

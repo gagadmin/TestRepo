@@ -163,8 +163,14 @@ via `LegacyLayout`.
 
 Smallest and least entangled first, so the pattern is proven before the hard ones:
 
-1. `audit` — one loader, one table, one filter set
-2. `users` — one loader, one dialog
+1. ~~`audit`~~ — done. `auditService` + `useAuditTrail` + `AuditTrailPage`;
+   80 template lines and 27 script lines left the monolith. Paging moved into
+   the composable and gained the guards the inline version lacked.
+2. ~~`users`~~ — done. `adminService.createUser` + `useUserDirectory` +
+   `UsersPage`, with `UserAccessDialog` and `CreateUserDialog` extracted; 457
+   template lines and ~200 script lines left the monolith. Note it is two
+   dialogs, not one: the access editor and the provisioning flow with its
+   show-once credentials panel.
 3. `analytics` — one loader, one action
 4. `schedules` — form-heavy but self-contained
 5. `integrations` — largest dialog; extract the credential form as a component

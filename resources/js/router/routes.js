@@ -165,10 +165,8 @@ export const routes = [
     {
         path: '/users',
         name: 'users',
-        component: () => import('@/pages/LegacyWorkspacePage.vue'),
-        // TODO(migration): extract into pages/UsersPage.vue
+        component: () => import('@/pages/UsersPage.vue'),
         meta: {
-            layout: 'legacy',
             permission: 'users.view',
             title: 'Users & access',
             nav: 'admin',
@@ -203,10 +201,8 @@ export const routes = [
     {
         path: '/audit',
         name: 'audit',
-        component: () => import('@/pages/LegacyWorkspacePage.vue'),
-        // TODO(migration): extract into pages/AuditPage.vue
+        component: () => import('@/pages/AuditTrailPage.vue'),
         meta: {
-            layout: 'legacy',
             permission: 'audit.view',
             title: 'Audit trail',
             nav: 'admin',

@@ -1,4 +1,4 @@
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { seoService } from '@/services/seoService';
 import { useAsyncAction, useAsyncResource } from './useAsyncResource';
 
@@ -97,22 +97,33 @@ export function useSeoInsights() {
         await Promise.all([plans.execute(), research.execute()]);
     }
 
-    // Reload insights whenever the selected property changes.
-    watch(selectedSourceId, (id) => {
-        if (id) {
-            loadInsights();
-        }
-    });
-
     async function init() {
         await loadSources();
+
         if (selectedSourceId.value) {
             await loadInsights();
         }
     }
 
-    function onSelectSource(id) {
+    /*
+     * Loading is driven from here rather than from a watcher on
+     * `selectedSourceId`. A watcher also fired when `init()` picked the first
+     * property, so opening the page issued every request twice — against an
+     * insights endpoint throttled to thirty a minute. Selection happens only
+     * through this function (the page binds `:model-value` and
+     * `@update:model-value`, never the ref), so one explicit call covers every
+     * path and, unlike a watcher, it can be awaited.
+     */
+    async function onSelectSource(id) {
+        if (id === selectedSourceId.value) {
+            return;
+        }
+
         selectedSourceId.value = id;
+
+        if (id) {
+            await loadInsights();
+        }
     }
 
     const saveProfile = useAsyncAction(

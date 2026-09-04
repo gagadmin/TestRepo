@@ -4,7 +4,7 @@ namespace App\Services\Ai\Providers;
 
 use App\Contracts\AiProvider;
 use App\Exceptions\AiProviderException;
-use Illuminate\Http\Client\ConnectionException;
+use App\Services\Ai\Providers\Concerns\RetriesProviderRequests;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
@@ -13,6 +13,8 @@ use RuntimeException;
 
 class GoogleAiStudioProvider implements AiProvider
 {
+    use RetriesProviderRequests;
+
     public function name(): string
     {
         return 'google';
@@ -290,41 +292,18 @@ class GoogleAiStudioProvider implements AiProvider
      */
     private function request(string $url, array $payload): Response
     {
-        $maxRetries = max(0, min((int) config('ai.provider_retry_attempts', 2), 5));
-
-        for ($attempt = 0; $attempt <= $maxRetries; $attempt++) {
-            try {
-                $response = Http::acceptJson()
-                    ->withHeaders(['x-goog-api-key' => config('ai.providers.google.api_key')])
-                    ->timeout(120)
-                    ->post($url, $payload);
-            } catch (ConnectionException $exception) {
-                if ($attempt === $maxRetries) {
-                    throw new RuntimeException('Google AI Studio could not be reached.', previous: $exception);
-                }
-
-                $this->pauseBeforeRetry($attempt);
-
-                continue;
-            }
-
-            if ($response->successful()) {
-                return $response;
-            }
-
-            $failure = $this->failure($response);
-
-            if (! $failure->retryable || $attempt === $maxRetries) {
-                return $response;
-            }
-
-            $this->pauseBeforeRetry($attempt, $response);
-        }
-
-        throw new RuntimeException('Google AI Studio could not be reached.');
+        return $this->requestWithRetries(fn () => Http::acceptJson()
+            ->withHeaders(['x-goog-api-key' => config('ai.providers.google.api_key')])
+            ->timeout(120)
+            ->post($url, $payload));
     }
 
-    private function failure(Response $response): AiProviderException
+    protected function unreachableMessage(): string
+    {
+        return 'Google AI Studio could not be reached.';
+    }
+
+    protected function failure(Response $response): AiProviderException
     {
         $providerStatus = $response->json('error.status');
         $code = is_string($providerStatus) && $providerStatus !== ''
@@ -378,18 +357,5 @@ class GoogleAiStudioProvider implements AiProvider
             $code,
             $response->status(),
         );
-    }
-
-    private function pauseBeforeRetry(int $attempt, ?Response $response = null): void
-    {
-        $retryAfter = $response?->header('Retry-After');
-        $delayMs = is_numeric($retryAfter)
-            ? (int) round((float) $retryAfter * 1000)
-            : (int) config('ai.provider_retry_base_delay_ms', 500) * (2 ** $attempt);
-        $delayMs = max(0, min($delayMs, 5000));
-
-        if ($delayMs > 0) {
-            usleep($delayMs * 1000);
-        }
     }
 }

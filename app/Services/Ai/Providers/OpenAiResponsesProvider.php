@@ -4,7 +4,7 @@ namespace App\Services\Ai\Providers;
 
 use App\Contracts\AiProvider;
 use App\Exceptions\AiProviderException;
-use Illuminate\Http\Client\ConnectionException;
+use App\Services\Ai\Providers\Concerns\RetriesProviderRequests;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -12,6 +12,8 @@ use RuntimeException;
 
 class OpenAiResponsesProvider implements AiProvider
 {
+    use RetriesProviderRequests;
+
     public function name(): string
     {
         return 'openai';
@@ -33,7 +35,11 @@ class OpenAiResponsesProvider implements AiProvider
             'OpenAI-Project' => config('ai.providers.openai.project'),
         ]);
 
-        $response = $this->request($headers, $payload);
+        $response = $this->requestWithRetries(fn () => Http::withToken(config('ai.providers.openai.api_key'))
+            ->acceptJson()
+            ->withHeaders($headers)
+            ->timeout(120)
+            ->post(config('ai.providers.openai.responses_url'), $payload));
 
         if (! $response->successful()) {
             throw $this->failure($response);
@@ -48,48 +54,12 @@ class OpenAiResponsesProvider implements AiProvider
         return $data;
     }
 
-    /**
-     * @param  array<string, string>  $headers
-     * @param  array<string, mixed>  $payload
-     */
-    private function request(array $headers, array $payload): Response
+    protected function unreachableMessage(): string
     {
-        $maxRetries = max(0, min((int) config('ai.provider_retry_attempts', 2), 5));
-
-        for ($attempt = 0; $attempt <= $maxRetries; $attempt++) {
-            try {
-                $response = Http::withToken(config('ai.providers.openai.api_key'))
-                    ->acceptJson()
-                    ->withHeaders($headers)
-                    ->timeout(120)
-                    ->post(config('ai.providers.openai.responses_url'), $payload);
-            } catch (ConnectionException $exception) {
-                if ($attempt === $maxRetries) {
-                    throw new RuntimeException('The OpenAI service could not be reached.', previous: $exception);
-                }
-
-                $this->pauseBeforeRetry($attempt);
-
-                continue;
-            }
-
-            if ($response->successful()) {
-                return $response;
-            }
-
-            $failure = $this->failure($response);
-
-            if (! $failure->retryable || $attempt === $maxRetries) {
-                return $response;
-            }
-
-            $this->pauseBeforeRetry($attempt, $response);
-        }
-
-        throw new RuntimeException('The OpenAI service could not be reached.');
+        return 'The OpenAI service could not be reached.';
     }
 
-    private function failure(Response $response): AiProviderException
+    protected function failure(Response $response): AiProviderException
     {
         $providerCode = $response->json('error.code');
         $providerType = $response->json('error.type');
@@ -157,18 +127,5 @@ class OpenAiResponsesProvider implements AiProvider
             $code,
             $response->status(),
         );
-    }
-
-    private function pauseBeforeRetry(int $attempt, ?Response $response = null): void
-    {
-        $retryAfter = $response?->header('Retry-After');
-        $delayMs = is_numeric($retryAfter)
-            ? (int) round((float) $retryAfter * 1000)
-            : (int) config('ai.provider_retry_base_delay_ms', 500) * (2 ** $attempt);
-        $delayMs = max(0, min($delayMs, 5000));
-
-        if ($delayMs > 0) {
-            usleep($delayMs * 1000);
-        }
     }
 }

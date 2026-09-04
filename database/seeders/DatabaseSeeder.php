@@ -18,10 +18,28 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $adminPassword = env('BI_ADMIN_PASSWORD');
+        /*
+         * Read through the config layer, not `env()`. `env()` returns null once
+         * `php artisan config:cache` has run - which is the normal deployment
+         * state, and something this repository's own deploy step does - so the
+         * seeder previously fell back to the development password on any cached
+         * environment.
+         *
+         * The refusal also covers every environment except local and testing.
+         * It was previously limited to production, which left staging and UAT
+         * able to seed an administrator with a password published in the source.
+         */
+        $adminPassword = config('bootstrap.admin.password');
 
-        if (! $adminPassword && app()->environment('production')) {
-            throw new \LogicException('BI_ADMIN_PASSWORD must be configured before production seeding.');
+        if (! $adminPassword) {
+            if (! app()->environment(['local', 'testing'])) {
+                throw new \LogicException(
+                    'BI_ADMIN_PASSWORD must be configured before seeding a '
+                    .app()->environment().' environment.'
+                );
+            }
+
+            $adminPassword = config('bootstrap.development_password');
         }
 
         $permissions = collect([
@@ -85,10 +103,10 @@ class DatabaseSeeder extends Seeder
         }
 
         $admin = User::updateOrCreate(
-            ['email' => env('BI_ADMIN_EMAIL', 'jacob.calit@gaholding.com')],
+            ['email' => config('bootstrap.admin.email')],
             [
-                'name' => env('BI_ADMIN_NAME', 'Platform Administrator'),
-                'password' => Hash::make($adminPassword ?: 'ChangeMe123!'),
+                'name' => config('bootstrap.admin.name'),
+                'password' => Hash::make($adminPassword),
                 'department' => 'Information Technology',
                 'title' => 'System Administrator',
                 'is_active' => true,

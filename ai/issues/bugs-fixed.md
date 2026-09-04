@@ -13,6 +13,29 @@ This log records material defects resolved before or during repository onboardin
 - Department assignment is visible in Users & Access and accepts existing suggestions or a normalized new value; access changes produce explicit safe before/after audit evidence.
 - Newly provisioned users no longer enter an infinite frontend redirect between forced password change and mandatory MFA enrollment. Identity gates now run sequentially: password change first, followed by MFA setup.
 
+### User access profile (WEB-671 code review rework)
+
+- A department-scoped report can no longer be published with a broad role grant. Report visibility treats `allowed_roles` as an alternative to the departmental check, so accepting `executive` there let any author with `reports.create` publish departmental data to every Executive account regardless of their configured departments — recreating, one record at a time, the bypass the seeded-data migration had just closed. Both the Form Request and the controller's server-side floor now admit only the cross-cutting roles (`administrator`, `security_officer`), and the rejection carries a message the author can act on.
+- The security telemetry gate reads the user access profile instead of the single `department` label. Previously an account granted Information Technology through its profile was offered the Security dashboard and then refused when it opened it, and removing that department from a profile did not withdraw security telemetry while the stale label still read IT. The privileged-role bypass is unchanged.
+- An explicitly emptied department list is honoured as written rather than silently falling back to the department label. Null (unconfigured) and `[]` (configured as empty) now mean the same two different things for departments that they already meant for platforms, and the administration screen presents both halves with the same three-state control, so an administrator has a way to express "no departmental visibility".
+
+### Security detection
+
+- A deactivated account being re-enabled is now reported by the privilege-escalation detector. The reactivation check read `is_active` from the roles collection rather than from the audit metadata, so the comparison was always `null === false` and the branch could never fire. Re-enabling a disabled account — a standard step in account takeover and in unapproved access restoration — produced no finding at all.
+- The after-hours administrative detector no longer re-reads the entire audit history on every scan. Its two event alternatives were not grouped, and because SQL binds `AND` more tightly than `OR`, the `user.access.updated` branch escaped both the scan window and the user filter. Every access change ever recorded was re-evaluated every five minutes, and stale findings had their last-detected time refreshed indefinitely instead of ageing out of the window.
+
+- The security dashboard no longer recomputes the same figures several times per request. `compliance()` was reached three times — directly, through `overview()` for the headline percentage, and through `securityScore()` for the failed-control deduction — and `mfaCoverage()` five times, each pass re-running the same account and policy queries. Both are now memoised for the life of the request, taking the dashboard from 62 database queries to 54. A query-count assertion guards the change.
+
+### Frontend
+
+- The SEO insights page no longer issues every request twice when it opens. `init()` selected the first connected property, which tripped a watcher on the same ref, and then loaded the insights itself — so the insights, action-plan, and web-research endpoints were each called twice per page open, halving the effective budget of an insights endpoint throttled to thirty requests a minute. Loading is now driven explicitly from `onSelectSource`, which is the only path the page uses to change the selection and, unlike a watcher, can be awaited.
+
+### Bootstrap and configuration
+
+- The database seeder no longer reads `env()` for the bootstrap administrator. `env()` returns null once `php artisan config:cache` has run, which is the normal deployed state, so a cached environment silently seeded the administrator with the development password `ChangeMe123!` instead of the configured one. The values now come from `config/bootstrap.php`.
+- Seeding refuses to run without a configured password in every environment except `local` and `testing`. The guard previously covered `production` alone, so staging and UAT could create an administrator whose password is published in this repository.
+- The seeder's default administrator email is no longer a named individual's corporate address; it falls back to the placeholder already used in `.env.example`.
+
 ## Integration security
 
 - HTTP redirects are disabled for governed integration requests.
@@ -28,6 +51,9 @@ This log records material defects resolved before or during repository onboardin
 
 - Conversation titles, messages, citations, tool-call metadata, tool arguments, and safe summaries are encrypted at rest.
 - Provider connection failures and malformed JSON now produce controlled application errors.
+- The Azure OpenAI provider now reports failures in the same vocabulary as the OpenAI and Google providers. It previously threw only bare `RuntimeException`, so `AiConversationController` — which branches on `AiProviderException` to return a provider code, a retryable flag, and an appropriate status — collapsed every Azure outcome into an indistinguishable 422. A rate limit, a rejected key, and an outage were reported to the user identically, and none carried the retryable flag the interface uses to decide whether trying again is worthwhile.
+- The Azure provider no longer retries failures that cannot succeed. `retry(2, 500)` repeated every failure including 401, 403, and 400, so a wrong key produced three authentication attempts per user message. Only rate limiting and upstream outages are retried now.
+- The Azure provider honours `AI_PROVIDER_RETRY_ATTEMPTS` and `AI_PROVIDER_RETRY_BASE_DELAY_MS`, and backs off according to a `Retry-After` header when the service supplies one. Both settings are documented in `.env.example` and were already honoured by the other providers; Azure hardcoded its own retry count and ignored them.
 - Unsupported AI provider configuration is handled explicitly.
 - Tool execution remains limited to validated, authorized, read-only allow-listed functions.
 

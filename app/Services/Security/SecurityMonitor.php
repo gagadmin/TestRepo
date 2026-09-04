@@ -414,8 +414,11 @@ class SecurityMonitor
 
             $sensitive = $gained->intersect(['administrator', 'security_officer'])->values();
 
-            // Also flag a reactivated account in the same change.
-            $reactivated = ($before['is_active'] ?? null) === false
+            // Also flag a reactivated account in the same change. Read from the
+            // metadata, not from $before: that holds only the roles list, so an
+            // `is_active` lookup against it was always null and this branch
+            // never fired.
+            $reactivated = ($metadata['before']['is_active'] ?? null) === false
                 && ($metadata['after']['is_active'] ?? null) === true;
 
             if ($sensitive->isEmpty() && ! $reactivated) {
@@ -611,11 +614,18 @@ class SecurityMonitor
 
         $since = $this->since(config('security.detection.window_minutes'));
 
+        /*
+         * The event alternatives must be grouped. Left ungrouped, SQL binds AND
+         * more tightly than OR, so the `user.access.updated` branch escaped both
+         * the scan window and the user filter: every access change ever recorded
+         * was re-read and re-evaluated on every five-minute scan, and old
+         * findings had their last-detected time refreshed forever instead of
+         * ageing out.
+         */
         $rows = DB::table('audit_logs')
-            ->whereIn('event', ['user.access.updated'])
-            ->orWhere(function ($query) use ($since) {
-                $query->where('event', 'like', '%.integrations.%')
-                    ->where('created_at', '>=', $since);
+            ->where(function ($query) {
+                $query->where('event', 'user.access.updated')
+                    ->orWhere('event', 'like', '%.integrations.%');
             })
             ->where('created_at', '>=', $since)
             ->whereNotNull('user_id')

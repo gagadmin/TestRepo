@@ -18,6 +18,22 @@ use Illuminate\Support\Facades\DB;
 class SecurityPostureService
 {
     /**
+     * Request-scoped memoisation.
+     *
+     * A dashboard request fans out into the same two calculations repeatedly:
+     * `compliance()` three times and `mfaCoverage()` five, each re-running the
+     * same account and policy queries. The service is resolved fresh per
+     * request and holds no other state, so caching here cannot leak between
+     * requests or between the scan and dashboard code paths.
+     *
+     * @var array<string, mixed>|null
+     */
+    private ?array $compliance = null;
+
+    /** @var array<int, array<string, mixed>> keyed by the active-user count */
+    private array $mfaCoverage = [];
+
+    /**
      * Full dashboard payload.
      */
     public function dashboard(int $trendDays = 30): array
@@ -431,7 +447,16 @@ class SecurityPostureService
     /**
      * Real MFA enrolment coverage, now that a second factor exists.
      */
+    /**
+     * Keyed by the active-user count so a caller passing a different total
+     * still gets the figures for that total rather than a cached mismatch.
+     */
     private function mfaCoverage(int $activeUsers): array
+    {
+        return $this->mfaCoverage[$activeUsers] ??= $this->buildMfaCoverage($activeUsers);
+    }
+
+    private function buildMfaCoverage(int $activeUsers): array
     {
         if (! config('security.two_factor.enabled')) {
             return [
@@ -530,7 +555,24 @@ class SecurityPostureService
      * 8. Compliance & governance
      * ------------------------------------------------------------------ */
 
+    /**
+     * Compliance control results.
+     *
+     * Memoised because a single dashboard request reaches this three times —
+     * once directly, once through `overview()` for the headline percentage, and
+     * once through `securityScore()` for the failed-control deduction — and each
+     * pass re-runs the MFA, password-policy, and lockout control queries. The
+     * cache is per instance and this service is resolved per request, so it
+     * cannot outlive the request that built it. Nothing a security scan writes
+     * affects these controls: they read configuration, account enrolment, and
+     * policy, never the findings table.
+     */
     public function compliance(): array
+    {
+        return $this->compliance ??= $this->buildCompliance();
+    }
+
+    private function buildCompliance(): array
     {
         $isProduction = app()->environment('production');
 

@@ -287,9 +287,16 @@ All keys live in `config/security.php` and read from environment variables.
 | Minimum severity | `SECURITY_ALERT_MIN_SEVERITY` | high |
 | Recipients | `SECURITY_ALERT_RECIPIENTS` | (empty) |
 | Teams enabled | `SECURITY_ALERT_TEAMS` | false |
-| Alert throttle | `SECURITY_ALERT_THROTTLE_MINUTES` | 60 |
+| Alert throttle | `SECURITY_ALERT_THROTTLE_MINUTES` | 60 (declared, not implemented — see note) |
 | Resolved-event retention | `SECURITY_EVENT_RETENTION_DAYS` | 365 |
 | Scan-history retention | `SECURITY_SCAN_RETENTION_DAYS` | 90 |
+
+`SECURITY_ALERT_THROTTLE_MINUTES` is read into configuration but no code
+consults it, so setting it has no effect. Repeat alerting is instead prevented
+by the `alerted` flag on each finding: a finding is announced once, and is
+re-announced only if it is reopened. Because findings are deduplicated by
+fingerprint, a persistent condition does not re-alert on every five-minute scan.
+The setting is recorded as KI-020 pending a decision to implement or remove it.
 
 ### Integration network policy
 | Key | Env | Default |

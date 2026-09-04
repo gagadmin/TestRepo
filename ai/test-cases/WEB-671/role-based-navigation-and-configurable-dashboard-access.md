@@ -5,7 +5,8 @@
 | Field | Value |
 | --- | --- |
 | Change Request Subject | Role-Based Navigation Visibility and Administrator-Configurable Department and Platform Access for Dashboards |
-| Change Request Filename | `ai/change-requests/role-based-navigation-and-configurable-dashboard-access.md` |
+| Branch Name | `WEB-671` |
+| Change Request Filename | `ai/change-requests/WEB-671/role-based-navigation-and-configurable-dashboard-access.md` |
 | Risk Rating | High |
 | Emergency Change | No |
 | Implementation Date | 3 September 2026 |
@@ -190,7 +191,7 @@ Name: ____________________  Signature: ____________________  Date: __________
 
 | Link | Reference |
 | --- | --- |
-| Change Request | `ai/change-requests/role-based-navigation-and-configurable-dashboard-access.md` |
+| Change Request | `ai/change-requests/WEB-671/role-based-navigation-and-configurable-dashboard-access.md` |
 | Automated coverage | `tests/Feature/AccessProfileTest.php`, `tests/Feature/AuthorizationTest.php`, `tests/Feature/DashboardReportingTest.php`, `tests/Feature/UserProvisioningTest.php` |
 | Frontend coverage | `resources/js/tests/`, `resources/js/router/routes.spec.js` |
 | External providers | Faked in all automated tests, per `ai/coding-standards.md` |

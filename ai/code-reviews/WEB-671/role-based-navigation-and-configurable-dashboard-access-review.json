@@ -1,0 +1,50 @@
+{
+  "reviewId": "CRV-WEB-671-20260904090625",
+  "reviewTitle": "Role-Based Navigation Visibility and Administrator-Configurable Department and Platform Access for Dashboards",
+  "reviewStatus": "CHANGES_REQUIRED",
+  "overallScore": 81,
+  "confidence": 88,
+  "riskLevel": "HIGH",
+  "branchName": "WEB-671",
+  "repository": "gagadmin/TestRepo",
+  "pullRequestNumber": "",
+  "jiraIssueKey": "WEB-671",
+  "generatedDate": "2026-09-04",
+  "generatedBy": "AI Code Review Generator",
+  "summary": "Every requested capability is present and working, but the role-grant closure is incomplete on the write path, the security telemetry gate does not consult the access profile, and the staging deployment workflow applies migrations without maintenance mode or a backup. Production release is not approved in the current state.",
+  "categories": {
+    "security": 68,
+    "performance": 90,
+    "maintainability": 85,
+    "architecture": null,
+    "testing": 80,
+    "documentation": 88
+  },
+  "findings": {
+    "critical": 0,
+    "high": 2,
+    "medium": 2,
+    "low": 0,
+    "informational": 0
+  },
+  "approval": {
+    "recommended": false,
+    "reason": "Departmental information can still be exposed to accounts the access profile excludes: a role grant bypasses the profile for records created after release (S-1), and the security telemetry area does not consult the profile at all (S-2). The staging deployment workflow added on this branch also applies the schema change without maintenance mode or a backup and is not covered by an approved Change Request (S-4)."
+  },
+  "affectedAreas": [
+    "Navigation visibility",
+    "Dashboard access",
+    "Report visibility",
+    "Platform entitlement",
+    "User administration",
+    "Security telemetry",
+    "Database schema",
+    "Deployment workflow"
+  ],
+  "reviewLinks": {
+    "markdownFile": "ai/code-reviews/WEB-671/role-based-navigation-and-configurable-dashboard-access-review.md",
+    "jsonFile": "ai/code-reviews/WEB-671/role-based-navigation-and-configurable-dashboard-access-review.json",
+    "pullRequest": "",
+    "jiraIssue": ""
+  }
+}

@@ -4,7 +4,9 @@
 
 **Subject:** Role-Based Navigation Visibility and Administrator-Configurable Department and Platform Access for Dashboards
 
-**Filename:** `ai/change-requests/role-based-navigation-and-configurable-dashboard-access.md`
+**Branch Name:** `WEB-671`
+
+**Filename:** `ai/change-requests/WEB-671/role-based-navigation-and-configurable-dashboard-access.md`
 
 **Risk Rating:** High (as assessed in the Change Request)
 
@@ -188,7 +190,7 @@ Adequate within the suite's boundaries. The visibility rules are exercised throu
 
 ### User Acceptance Testing
 
-Not started, and correctly outstanding. The traceable test case document exists at `ai/test-cases/role-based-navigation-and-configurable-dashboard-access.md` and covers the required scenarios. The cross-functional group described in the rollout plan — including an executive, a multi-department user, and an administrator — has not yet run it.
+Not started, and correctly outstanding. The traceable test case document exists at `ai/test-cases/WEB-671/role-based-navigation-and-configurable-dashboard-access.md` and covers the required scenarios. The cross-functional group described in the rollout plan — including an executive, a multi-department user, and an administrator — has not yet run it.
 
 ### Regression Risk
 
@@ -305,7 +307,7 @@ Approval is expected to follow once actions 1 to 5 are complete, KI-015 and KI-0
 
 **Generated Date:** 3 September 2026
 
-**Related Change Request:** `ai/change-requests/role-based-navigation-and-configurable-dashboard-access.md` (approved, High risk, amended 3 September 2026)
+**Related Change Request:** `ai/change-requests/WEB-671/role-based-navigation-and-configurable-dashboard-access.md` (approved, High risk, amended 3 September 2026)
 
 **Review Confidence:**
 
